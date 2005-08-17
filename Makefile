@@ -1,4 +1,5 @@
 GHC = ghc
+FLAGS = -Wall -Werror -O2
 lessons = lesson*.hs
 
 default: $(lessons)
@@ -13,11 +14,11 @@ usage:
 
 #this is nice so you can type "make *"
 $(lessons):
-	$(GHC) -O2 --make $@ -o $(subst .hs,,$@)
+	$(GHC) $(FLAGS) --make $@ -o $(subst .hs,,$@)
 
 #with this rule you can type "make lessonXY"
 % :: %.hs
-	$(GHC) -O2 --make $< -o $@
+	$(GHC) $(FLAGS) --make $< -o $@
 
 clean:
 	rm -rf *.o *.hi
