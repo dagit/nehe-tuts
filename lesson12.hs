@@ -4,27 +4,11 @@
 
 module Main where
 
-import System.Exit
-import Graphics.Rendering.OpenGL
-import Graphics.Rendering.OpenGL.GL 
-import Graphics.Rendering.OpenGL.GLU
-import Graphics.UI.GLUT
-import Control.Concurrent
-import Data.IORef
-import System.IO
-import Foreign.Marshal.Alloc
-import Foreign.Marshal.Utils
-import Foreign.Storable
-import Foreign.Ptr
-import Data.Word
-import Data.Int
-import Control.Monad
-import GHC.IOBase
-
-data Endian = LittleEndian | BigEndian
-              deriving (Eq, Ord, Show)
-
-data Image = Image Size (PixelData Word8)
+import Graphics.UI.GLUT 
+import System.Exit ( exitWith, ExitCode(..) )
+import Data.IORef ( IORef, newIORef, modifyIORef )
+import Util ( Image(..), bitmapLoad )
+import Monad ( liftM )
 
 boxcol :: [Color3 GLfloat]
 boxcol = [Color3 1 0 0, Color3 1 0.5 0, Color3 1 1 0, 
@@ -33,6 +17,7 @@ topcol :: [Color3 GLfloat]
 topcol = [Color3 0.5 0 0, Color3 0.5 0.25 0, Color3 0.5 0.5 0,
           Color3 0 0.5 0, Color3 0 0.5 0.5]
 
+buildLists :: IO (DisplayList, DisplayList)
 buildLists = do
   box <- defineNewList Compile $ 
     do renderPrimitive Quads $ 
@@ -68,6 +53,7 @@ buildLists = do
               texCoord (TexCoord2 1 (1::GLfloat)); vertex (Vertex3 1 1 (-1::GLfloat)); }
   return (box, top)
 
+initGL :: IO TextureObject
 initGL = do
   tex <- loadGLTextures
   texture Texture2D $= Enabled
@@ -87,86 +73,7 @@ initGL = do
   flush -- finally, we tell opengl to do it.
   return tex
 
-bitmapLoad :: String -> IO Image
-bitmapLoad f = do
-  handle <- openBinaryFile f ReadMode
-  hSeek handle RelativeSeek 18
-  width <- readInt handle
-  putStrLn ("Width of "++f++": "++show width)
-  height <- readInt handle
-  putStrLn ("Height of "++f++": "++show height)
-  planes <- readShort handle
-  bpp <- readShort handle
-  size <- return (width*height*3)
-  hSeek handle RelativeSeek 24
-  putStrLn ("Planes = "++(show planes))
-  bgrBytes <- (readBytes handle (fromIntegral size) :: IO (Ptr Word8))
-  rgbBytes <- bgr2rgb bgrBytes (fromIntegral size)
-  return (Image (Size (fromIntegral width)
-                      (fromIntegral height)) 
-          (PixelData RGB UnsignedByte rgbBytes))
--- Begin low level Bitmap loading code
-endian :: Endian
-endian = let r = unsafePerformIO (
-                 do w <- allocaBytes 4 (\p -> do pokeElemOff p 0 (0::Word8)
-                                                 pokeElemOff p 1 (1::Word8)
-                                                 pokeElemOff p 2 (2::Word8)
-                                                 pokeElemOff p 3 (3::Word8)
-                                                 peek (castPtr p) :: IO Int32)
-                    return w)
-         in case r of 50462976 -> LittleEndian
-                      66051    -> BigEndian
-                      _        -> undefined
-
-bgr2rgb :: Ptr Word8 -> Int -> IO (Ptr Word8)
-bgr2rgb p n = mapM_ (\i -> do b <- peekElemOff p (i+0)
-                              g <- peekElemOff p (i+1)
-                              r <- peekElemOff p (i+2)
-                              pokeElemOff p (i+0) r
-                              pokeElemOff p (i+1) g
-                              pokeElemOff p (i+2) b) [0,3..n-3] 
-              >> return p
-                  
-readStorable :: Storable a => Handle -> Int -> IO (Ptr a)
-readStorable h n = do p <- mallocBytes n
-                      hGetBuf h p n
-                      return p
-
--- This is only needed if you're on PowerPC instead of x86
--- if you are on x86 use the following:
--- reverseBytes p _ = return p
-reverseBytes :: Ptr Word8 -> Int -> IO (Ptr Word8)
-reverseBytes p n | endian == BigEndian = 
-                   do p' <- mallocBytes n
-                      mapM_ (\i -> peekElemOff p i >>= pokeElemOff p' (n-i-1)) 
-                            [0..n-1]
-                      return p'
-                 | endian == LittleEndian = do p' <- mallocBytes n
-                                               copyBytes p' p n
-                                               return p'
-                            
-readBytes :: Storable a => Handle -> Int -> IO (Ptr a)
-readBytes h n = do p <- mallocBytes n
-                   hGetBuf h p n
-                   return p
-
-readShort :: Handle -> IO Word16
-readShort h = do p <- readBytes h 2 :: IO (Ptr Word8)
-                 p' <- reverseBytes (castPtr p) 2
-                 free p
-                 r <- peek (castPtr p')
-                 free p'
-                 return r
-
-readInt :: Handle -> IO Int32
-readInt h = do p <- readBytes h 4 :: IO (Ptr Word8)
-               p' <- reverseBytes (castPtr p) 4
-               free p
-               r <- peek (castPtr p')
-               free p'
-               return r
--- End low level bitmap loading code
-
+loadGLTextures :: IO TextureObject
 loadGLTextures = do
   (Image (Size w h) pd) <- bitmapLoad "Data/cube.bmp"
   texName <- liftM head (genObjectNames 1)
@@ -175,6 +82,7 @@ loadGLTextures = do
   texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
   return texName
 
+resizeScene :: Size -> IO ()
 resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
 resizeScene s@(Size width height) = do
   viewport   $= (Position 0 0, s)
@@ -184,13 +92,14 @@ resizeScene s@(Size width height) = do
   matrixMode $= Modelview 0
   flush
 
-drawScene tex xrot yrot zrot box top = do
+drawScene :: TextureObject -> IORef GLfloat -> IORef GLfloat
+             -> DisplayList -> DisplayList -> IO ()
+drawScene tex xrot yrot box top = do
   clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
   textureBinding Texture2D $= Just tex
 
   xr <- get xrot
   yr <- get yrot
-  zr <- get zrot
 
   mapM_ (\(x,y) -> 
     do { loadIdentity;
@@ -208,7 +117,6 @@ drawScene tex xrot yrot zrot box top = do
   -- drawn
   flush
   swapBuffers
-  --threadDelay 100
 
 keyPressed :: IORef GLfloat -> IORef GLfloat -> KeyboardMouseCallback
 -- 27 is ESCAPE
@@ -219,11 +127,11 @@ keyPressed _ yrot (SpecialKey KeyLeft) Down _ _ = modifyIORef yrot (subtract 0.8
 keyPressed _ yrot (SpecialKey KeyRight) Down _ _ = modifyIORef yrot (+0.8)
 keyPressed _ _ _            _    _ _ = return ()
 
+main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
      -- http://reality.sgi.com/mjk/spec3/spec3.html
---     bitmapLoad "Data/lesson06/NeHe.bmp"
      getArgsAndInitialize 
      -- select type of display mode:
      -- Double buffer
@@ -241,20 +149,15 @@ main = do
      -- register the function to do all our OpenGL drawing
      xrot <- newIORef 0
      yrot <- newIORef 0
-     zrot <- newIORef 0
-     box <- newIORef 0
-     top <- newIORef 0
-     xloop <- newIORef 0
-     yloop <- newIORef 0
      
      -- initialize our window.
      tex <- initGL
      (box, top) <- buildLists
-     displayCallback $= (drawScene tex xrot yrot zrot box top)
+     displayCallback $= (drawScene tex xrot yrot box top)
      -- go fullscreen. This is as soon as possible.
      fullScreen
      -- even if there are no events, redraw our gl scene
-     idleCallback $= Just (drawScene tex xrot yrot zrot box top)
+     idleCallback $= Just (drawScene tex xrot yrot box top)
      -- register the funciton called when our window is resized
      reshapeCallback $= Just resizeScene
      -- register the function called when the keyboard is pressed.
