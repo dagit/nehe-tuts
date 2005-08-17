@@ -10,8 +10,6 @@ usage:
 	@echo "Usage: make lessonXY.hs"
 	@echo "Current lessons available are:" $(lessons)
 
-.PHONY: $(lessons)
-
 #this is nice so you can type "make *"
 $(lessons):
 	$(GHC) $(FLAGS) --make $@ -o $(subst .hs,,$@)
