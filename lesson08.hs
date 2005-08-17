@@ -4,27 +4,10 @@
 
 module Main where
 
-import System.Exit
-import Graphics.Rendering.OpenGL
-import Graphics.Rendering.OpenGL.GL 
-import Graphics.Rendering.OpenGL.GLU
-import Graphics.UI.GLUT
-import Control.Concurrent
-import Data.IORef
-import System.IO
-import Foreign.Marshal.Alloc
-import Foreign.Marshal.Utils
-import Foreign.Storable
-import Foreign.Ptr
-import Data.Word
-import Data.Int
-import Control.Monad
-import GHC.IOBase
-
-data Endian = LittleEndian | BigEndian
-              deriving (Eq, Ord, Show)
-
-data Image = Image Size (PixelData Word8)
+import Graphics.UI.GLUT 
+import System.Exit ( exitWith, ExitCode(..) )
+import Data.IORef ( IORef, newIORef, writeIORef )
+import Util ( Image(..), bitmapLoad )
 
 lightAmbient :: Color4 GLfloat
 lightAmbient = Color4 0.5 0.5 0.5 1.0
@@ -33,12 +16,14 @@ lightDiffuse = Color4 1.0 1.0 1.0 1.0
 lightPosition :: Vertex4 GLfloat
 lightPosition = Vertex4 0.0 0.0 2.0 1.0
 
+initGL :: IO [TextureObject]
 initGL = do
   texs <- loadGLTextures
   texture Texture2D $= Enabled
   clearColor $= Color4 0 0 0 0.5 -- Clear the background color to black
   clearDepth $= 1 -- enables clearing of the depth buffer
-  depthFunc  $= Just Less -- type of depth test
+  depthFunc $= Nothing
+  blend $= Enabled
   hint PerspectiveCorrection $= Nicest
   ambient (Light 1) $= lightAmbient
   diffuse (Light 1) $= lightDiffuse
@@ -57,86 +42,7 @@ initGL = do
   flush -- finally, we tell opengl to do it.
   return texs
 
-bitmapLoad :: String -> IO Image
-bitmapLoad f = do
-  handle <- openBinaryFile f ReadMode
-  hSeek handle RelativeSeek 18
-  width <- readInt handle
-  putStrLn ("Width of "++f++": "++show width)
-  height <- readInt handle
-  putStrLn ("Height of "++f++": "++show height)
-  planes <- readShort handle
-  bpp <- readShort handle
-  size <- return (width*height*3)
-  hSeek handle RelativeSeek 24
-  putStrLn ("Planes = "++(show planes))
-  bgrBytes <- (readBytes handle (fromIntegral size) :: IO (Ptr Word8))
-  rgbBytes <- bgr2rgb bgrBytes (fromIntegral size)
-  return (Image (Size (fromIntegral width)
-                      (fromIntegral height)) 
-          (PixelData RGB UnsignedByte rgbBytes))
--- Begin low level Bitmap loading code
-endian :: Endian
-endian = let r = unsafePerformIO (
-                 do w <- allocaBytes 4 (\p -> do pokeElemOff p 0 (0::Word8)
-                                                 pokeElemOff p 1 (1::Word8)
-                                                 pokeElemOff p 2 (2::Word8)
-                                                 pokeElemOff p 3 (3::Word8)
-                                                 peek (castPtr p) :: IO Int32)
-                    return w)
-         in case r of 50462976 -> LittleEndian
-                      66051    -> BigEndian
-                      _        -> undefined
-
-bgr2rgb :: Ptr Word8 -> Int -> IO (Ptr Word8)
-bgr2rgb p n = mapM_ (\i -> do b <- peekElemOff p (i+0)
-                              g <- peekElemOff p (i+1)
-                              r <- peekElemOff p (i+2)
-                              pokeElemOff p (i+0) r
-                              pokeElemOff p (i+1) g
-                              pokeElemOff p (i+2) b) [0,3..n-3] 
-              >> return p
-                  
-readStorable :: Storable a => Handle -> Int -> IO (Ptr a)
-readStorable h n = do p <- mallocBytes n
-                      hGetBuf h p n
-                      return p
-
--- This is only needed if you're on PowerPC instead of x86
--- if you are on x86 use the following:
--- reverseBytes p _ = return p
-reverseBytes :: Ptr Word8 -> Int -> IO (Ptr Word8)
-reverseBytes p n | endian == BigEndian = 
-                   do p' <- mallocBytes n
-                      mapM_ (\i -> peekElemOff p i >>= pokeElemOff p' (n-i-1)) 
-                            [0..n-1]
-                      return p'
-                 | endian == LittleEndian = do p' <- mallocBytes n
-                                               copyBytes p' p n
-                                               return p'
-                            
-readBytes :: Storable a => Handle -> Int -> IO (Ptr a)
-readBytes h n = do p <- mallocBytes n
-                   hGetBuf h p n
-                   return p
-
-readShort :: Handle -> IO Word16
-readShort h = do p <- readBytes h 2 :: IO (Ptr Word8)
-                 p' <- reverseBytes (castPtr p) 2
-                 free p
-                 r <- peek (castPtr p')
-                 free p'
-                 return r
-
-readInt :: Handle -> IO Int32
-readInt h = do p <- readBytes h 4 :: IO (Ptr Word8)
-               p' <- reverseBytes (castPtr p) 4
-               free p
-               r <- peek (castPtr p')
-               free p'
-               return r
--- End low level bitmap loading code
-
+loadGLTextures :: IO [TextureObject]
 loadGLTextures = do
   (Image (Size w h) pd) <- bitmapLoad "Data/glass.bmp"
   texNames <- genObjectNames 3
@@ -155,6 +61,7 @@ loadGLTextures = do
   build2DMipmaps Texture2D RGB' w h pd
   return texNames
 
+resizeScene :: Size -> IO ()
 resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
 resizeScene s@(Size width height) = do
   viewport   $= (Position 0 0, s)
@@ -164,7 +71,10 @@ resizeScene s@(Size width height) = do
   matrixMode $= Modelview 0
   flush
 
-drawScene texs xrot yrot xspeed yspeed zdepth filter = do
+drawScene :: [TextureObject] -> IORef GLfloat -> IORef GLfloat
+             -> IORef GLfloat -> IORef GLfloat -> IORef GLfloat
+             -> IORef Int -> IO ()
+drawScene texs xrot yrot xspeed yspeed zdepth filt = do
   clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
   loadIdentity  -- reset view
   zd <- get zdepth
@@ -174,7 +84,7 @@ drawScene texs xrot yrot xspeed yspeed zdepth filter = do
   yr <- get yrot
   rotate xr (Vector3 1 0 (0::GLfloat)) -- Rotate the triangle on the Y axis
   rotate yr (Vector3 0 1 (0::GLfloat)) -- Rotate the triangle on the Y axis
-  f <- get filter
+  f <- get filt
   textureBinding Texture2D $= Just (texs!!f)
   renderPrimitive Quads $  -- start drawing a polygon (4 sided)
     do 
@@ -246,7 +156,6 @@ drawScene texs xrot yrot xspeed yspeed zdepth filter = do
   -- drawn
   flush
   swapBuffers
-  --threadDelay 100
 
 keyPressed :: IORef Int -> IORef GLfloat -> IORef GLfloat ->
               IORef GLfloat -> KeyboardMouseCallback
@@ -257,8 +166,8 @@ keyPressed _ _ _ _ (Char 'L') Down   _ _ = do l <- get lighting
                                                  then lighting $= Disabled
                                                  else lighting $= Enabled
                                               return ()
-keyPressed filter _ _ _ (Char 'F') Down  _  _ = 
-  get filter >>= writeIORef filter . (flip mod 3) . (+1)
+keyPressed filt _ _ _ (Char 'F') Down  _  _ = 
+  get filt >>= writeIORef filt . (flip mod 3) . (+1)
 keyPressed _ _ _ _ (Char 'B') Down _ _ = do
   b <- get blend
   if b == Enabled 
@@ -282,11 +191,11 @@ keyPressed _ _ _ yspeed (SpecialKey KeyLeft) Down _ _ = do
   get yspeed >>= writeIORef yspeed . (subtract 0.1)
 keyPressed _ _ _ _     _       _    _ _ = return ()
 
+main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
      -- http://reality.sgi.com/mjk/spec3/spec3.html
---     bitmapLoad "Data/lesson06/NeHe.bmp"
      getArgsAndInitialize 
      -- select type of display mode:
      -- Double buffer
@@ -307,18 +216,17 @@ main = do
      xspeed <- newIORef (0::GLfloat)
      yspeed <- newIORef (0::GLfloat)
      zdepth <- newIORef (-5.0 :: GLfloat)
-     filter <- newIORef 0
-     blend <- newIORef False
+     filt <- newIORef 0
      -- initialize our window.
      texs <- initGL
-     displayCallback $= (drawScene texs xrot yrot xspeed yspeed zdepth filter)
+     displayCallback $= (drawScene texs xrot yrot xspeed yspeed zdepth filt)
      -- go fullscreen. This is as soon as possible.
      fullScreen
      -- even if there are no events, redraw our gl scene
-     idleCallback $= Just (drawScene texs xrot yrot xspeed yspeed zdepth filter)
+     idleCallback $= Just (drawScene texs xrot yrot xspeed yspeed zdepth filt)
      -- register the funciton called when our window is resized
      reshapeCallback $= Just resizeScene
      -- register the function called when the keyboard is pressed.
-     keyboardMouseCallback $= Just (keyPressed filter zdepth xspeed yspeed)
+     keyboardMouseCallback $= Just (keyPressed filt zdepth xspeed yspeed)
      -- start event processing engine
      mainLoop
