@@ -4,12 +4,10 @@
 
 module Main where
 
-import System.Exit
-import Graphics.Rendering.OpenGL.GL
-import Graphics.Rendering.OpenGL.GLU
 import Graphics.UI.GLUT
-import Control.Concurrent
+import System.Exit ( exitWith, ExitCode(..) )
 
+initGL :: IO ()
 initGL = do
   clearColor $= Color4 0 0 0 0 -- Clear the background color to black
   clearDepth $= 1 -- enables clearing of the depth buffer
@@ -23,6 +21,7 @@ initGL = do
 
   flush -- finally, we tell opengl to do it.
 
+resizeScene :: Size -> IO ()
 resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
 resizeScene s@(Size width height) = do
   viewport $= (Position 0 0, s)
@@ -32,6 +31,7 @@ resizeScene s@(Size width height) = do
   matrixMode $= Modelview 0
   flush
 
+drawScene :: IO ()
 drawScene = do
   clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
   loadIdentity  -- reset view
@@ -63,7 +63,7 @@ keyPressed :: KeyboardMouseCallback
 keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
 keyPressed _            _    _ _ = do --threadDelay 100
                                       return ()
-
+main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
