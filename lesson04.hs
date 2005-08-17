@@ -4,16 +4,14 @@
 
 module Main where
 
-import System.Exit
-import Graphics.Rendering.OpenGL.GL
-import Graphics.Rendering.OpenGL.GLU
 import Graphics.UI.GLUT
-import Control.Concurrent
-import Data.IORef
+import System.Exit ( exitWith, ExitCode(..) )
+import Data.IORef ( IORef, newIORef )
 
 increment :: GLfloat
 increment = 1.5
 
+initGL :: IO ()
 initGL = do
   clearColor $= Color4 0 0 0 0 -- Clear the background color to black
   clearDepth $= 1 -- enables clearing of the depth buffer
@@ -27,6 +25,7 @@ initGL = do
 
   flush -- finally, we tell opengl to do it.
 
+resizeScene :: Size -> IO ()
 resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
 resizeScene s@(Size width height) = do
   viewport $= (Position 0 0, s)
@@ -36,6 +35,7 @@ resizeScene s@(Size width height) = do
   matrixMode $= Modelview 0
   flush
 
+drawScene :: IORef GLfloat -> IORef GLfloat -> IO ()
 drawScene rtri rquad = do
   clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
   loadIdentity  -- reset view
@@ -74,16 +74,13 @@ drawScene rtri rquad = do
   -- drawn
   swapBuffers
   flush
-  threadDelay 100
 
 keyPressed :: KeyboardMouseCallback
 -- 27 is ESCAPE
 keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed _            _    _ _ = do threadDelay 100 -- add a delay in 
-                                      return ()       -- event handeling 
-                                                      -- so we don't eat 
-                                                      -- up the processor
+keyPressed _            _    _ _ = return ()
 
+main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
