@@ -4,31 +4,16 @@
 
 module Main where
 
-import System.Exit
-import Graphics.Rendering.OpenGL
-import Graphics.Rendering.OpenGL.GL 
-import Graphics.Rendering.OpenGL.GLU
-import Graphics.UI.GLUT
-import Control.Concurrent
-import Data.IORef
-import System.IO
-import Foreign.Marshal.Alloc
-import Foreign.Marshal.Utils
-import Foreign.Storable
-import Foreign.Ptr
-import Data.Word
-import Data.Int
-import Data.Array
-import Data.Array.MArray
-import Data.Array.IO
-import Control.Monad
-import GHC.IOBase
+import Graphics.UI.GLUT 
+import System.Exit ( exitWith, ExitCode(..) )
+import Data.IORef ( IORef, newIORef, modifyIORef )
+import Util ( Image(..), bitmapLoad )
+import Monad ( liftM, liftM3, when )
+import Data.Array.IO ( readArray, IOUArray, newListArray )
 
-data Endian = LittleEndian | BigEndian
-              deriving (Eq, Ord, Show)
+type Points = IOUArray (Int, Int, Int) Float
 
-data Image = Image Size (PixelData Word8)
-
+initGL :: IO TextureObject
 initGL = do
   tex <- loadGLTextures
   texture Texture2D $= Enabled
@@ -45,86 +30,7 @@ initGL = do
   flush -- finally, we tell opengl to do it.
   return tex
 
-bitmapLoad :: String -> IO Image
-bitmapLoad f = do
-  handle <- openBinaryFile f ReadMode
-  hSeek handle RelativeSeek 18
-  width <- readInt handle
-  putStrLn ("Width of "++f++": "++show width)
-  height <- readInt handle
-  putStrLn ("Height of "++f++": "++show height)
-  planes <- readShort handle
-  bpp <- readShort handle
-  size <- return (width*height*3)
-  hSeek handle RelativeSeek 24
-  putStrLn ("Planes = "++(show planes))
-  bgrBytes <- (readBytes handle (fromIntegral size) :: IO (Ptr Word8))
-  rgbBytes <- bgr2rgb bgrBytes (fromIntegral size)
-  return (Image (Size (fromIntegral width)
-                      (fromIntegral height)) 
-          (PixelData RGB UnsignedByte rgbBytes))
--- Begin low level Bitmap loading code
-endian :: Endian
-endian = let r = unsafePerformIO (
-                 do w <- allocaBytes 4 (\p -> do pokeElemOff p 0 (0::Word8)
-                                                 pokeElemOff p 1 (1::Word8)
-                                                 pokeElemOff p 2 (2::Word8)
-                                                 pokeElemOff p 3 (3::Word8)
-                                                 peek (castPtr p) :: IO Int32)
-                    return w)
-         in case r of 50462976 -> LittleEndian
-                      66051    -> BigEndian
-                      _        -> undefined
-
-bgr2rgb :: Ptr Word8 -> Int -> IO (Ptr Word8)
-bgr2rgb p n = mapM_ (\i -> do b <- peekElemOff p (i+0)
-                              g <- peekElemOff p (i+1)
-                              r <- peekElemOff p (i+2)
-                              pokeElemOff p (i+0) r
-                              pokeElemOff p (i+1) g
-                              pokeElemOff p (i+2) b) [0,3..n-3] 
-              >> return p
-                  
-readStorable :: Storable a => Handle -> Int -> IO (Ptr a)
-readStorable h n = do p <- mallocBytes n
-                      hGetBuf h p n
-                      return p
-
--- This is only needed if you're on PowerPC instead of x86
--- if you are on x86 use the following:
--- reverseBytes p _ = return p
-reverseBytes :: Ptr Word8 -> Int -> IO (Ptr Word8)
-reverseBytes p n | endian == BigEndian = 
-                   do p' <- mallocBytes n
-                      mapM_ (\i -> peekElemOff p i >>= pokeElemOff p' (n-i-1)) 
-                            [0..n-1]
-                      return p'
-                 | endian == LittleEndian = do p' <- mallocBytes n
-                                               copyBytes p' p n
-                                               return p'
-                            
-readBytes :: Storable a => Handle -> Int -> IO (Ptr a)
-readBytes h n = do p <- mallocBytes n
-                   hGetBuf h p n
-                   return p
-
-readShort :: Handle -> IO Word16
-readShort h = do p <- readBytes h 2 :: IO (Ptr Word8)
-                 p' <- reverseBytes (castPtr p) 2
-                 free p
-                 r <- peek (castPtr p')
-                 free p'
-                 return r
-
-readInt :: Handle -> IO Int32
-readInt h = do p <- readBytes h 4 :: IO (Ptr Word8)
-               p' <- reverseBytes (castPtr p) 4
-               free p
-               r <- peek (castPtr p')
-               free p'
-               return r
--- End low level bitmap loading code
-
+loadGLTextures :: IO TextureObject
 loadGLTextures = do
   (Image (Size w h) pd) <- bitmapLoad "Data/tim.bmp"
   texName <- liftM head (genObjectNames 1)
@@ -133,6 +39,7 @@ loadGLTextures = do
   texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
   return texName
 
+resizeScene :: Size -> IO ()
 resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
 resizeScene s@(Size width height) = do
   viewport   $= (Position 0 0, s)
@@ -142,6 +49,8 @@ resizeScene s@(Size width height) = do
   matrixMode $= Modelview 0
   flush
 
+drawScene :: TextureObject -> IORef GLfloat -> IORef GLfloat -> IORef GLfloat
+             -> Points -> IORef Int -> IORef Int -> IO () 
 drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
   clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
   loadIdentity  -- reset view
@@ -165,25 +74,21 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
        let fxb = fromIntegral (x+1)/44 :: GLfloat
        let fyb = fromIntegral (y+1)/44 :: GLfloat
        texCoord (TexCoord2 fx fy)
-       p1 <- readArray points (x,y,0)
-       p2 <- readArray points (x,y,1)
-       p3 <- readArray points (x',y,2)
-       vertex (Vertex3 p1 p2 p3)
+       vertex =<< liftM3 Vertex3 (readArray points (x,y,0))
+                                 (readArray points (x,y,1))
+                                 (readArray points (x',y,2))
        texCoord (TexCoord2 fx fyb)
-       p1 <- readArray points (x,y+1,0)
-       p2 <- readArray points (x,y+1,1)
-       p3 <- readArray points (x',y+1,2)
-       vertex (Vertex3 p1 p2 p3)
+       vertex =<< liftM3 Vertex3 (readArray points (x,y+1,0))
+                                 (readArray points (x,y+1,1))
+                                 (readArray points (x',y+1,2))
        texCoord (TexCoord2 fxb fyb)
-       p1 <- readArray points (x+1,y+1,0)
-       p2 <- readArray points (x+1,y+1,1)
-       p3 <- readArray points ((x'+1)`mod`45,y+1,2)
-       vertex (Vertex3 p1 p2 p3)
+       vertex =<< liftM3 Vertex3 (readArray points (x+1,y+1,0))
+                                 (readArray points (x+1,y+1,1))
+                                 (readArray points ((x'+1)`mod`45,y+1,2))
        texCoord (TexCoord2 fxb fy)
-       p1 <- readArray points (x+1,y,0)
-       p2 <- readArray points (x+1,y,1)
-       p3 <- readArray points ((x'+1)`mod`45,y,2)
-       vertex (Vertex3 p1 p2 p3) )
+       vertex =<< liftM3 Vertex3 (readArray points (x+1,y,0))
+                                 (readArray points (x+1,y,1))
+                                 (readArray points ((x'+1)`mod`45,y,2)) )
     [(x,y) | x <- [0..43], y<-[0..43]]
   xrot $= xr + 0.3
   yrot $= yr + 0.2
@@ -193,27 +98,22 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
     offsetRef $= offset + 1
     wiggleRef $= 0 
 
-  wiggle <- get wiggleRef
-  wiggleRef $= wiggle + 1
+  modifyIORef wiggleRef (+ 1)
   -- since this is double buffered, swap the buffers to display what was just
   -- drawn
   flush
   swapBuffers
-  --threadDelay 100
 
 keyPressed :: KeyboardMouseCallback
 -- 27 is ESCAPE
 keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed _            _    _ _ = do --threadDelay 100 -- add a delay in 
-                                      return ()       -- event handeling 
-                                                      -- so we don't eat 
-                                                      -- up the processor
+keyPressed _            _    _ _ = return ()
 
+main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
      -- http://reality.sgi.com/mjk/spec3/spec3.html
---     bitmapLoad "Data/lesson06/NeHe.bmp"
      getArgsAndInitialize 
      -- select type of display mode:
      -- Double buffer
@@ -237,8 +137,8 @@ main = do
      elems <- return $ concat [[((fromIntegral x/5)-4.5), 
                                 ((fromIntegral y/5)-4.5),
                                 sin (((fromIntegral x/5)*40/360)*pi*2)] 
-                                | x <- [0..44], y <- [0..44] ]
-     points <- newListArray ((0,0,0), (44,44,2)) elems :: IO (IOUArray (Int, Int, Int) Float)
+                                | x <- [0..44]::[Int], y <- [0..44]::[Int] ]
+     points <- newListArray ((0,0,0), (44,44,2)) elems :: IO Points
      -- initialize our window.
      tex <- initGL
      displayCallback $= (drawScene tex xrot yrot zrot points wiggle offset)
