@@ -1,0 +1,23 @@
+These examples were created by Jeff Molofee '99 NeHe of http://nehe.gamedev.net
+
+Converted to Haskell by Jason Dagit, 2005.  As far as I know, all
+examples require GHC and the HOpenGL library.  I've tried not to add
+anything else as a requirement.  This code is tested on OSX only.  If
+you try it on another platform and it works for you, then please let
+me know.
+
+Usage:
+
+make lessonXY            # this will build just lessonXY
+make lessonXY.hs         # same as above rule, convienent for tab completion.
+make                     # build everything
+make clean               # gets rid of the .hs and .o files
+make distclean           # make clean and get rid of the binaries
+
+Acknowldegements:
+I want to thank #haskell on irc.freenode.net for support and general
+help.  Especially to Lemmih for supplying example code.
+
+Authors:
+Jeff Molofee aka NeHe
+Jason Dagit <dagit@codersbase.com>
