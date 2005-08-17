@@ -61,8 +61,8 @@ drawScene = do
 keyPressed :: KeyboardMouseCallback
 -- 27 is ESCAPE
 keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed _            _    _ _ = do --threadDelay 100
-                                      return ()
+keyPressed _            _    _ _ = return ()
+
 main :: IO ()
 main = do
      -- Initialize GLUT state - glut will take any command line arguments
