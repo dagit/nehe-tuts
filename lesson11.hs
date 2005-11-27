@@ -66,27 +66,27 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
   rotate yr (Vector3 0 1 (0::GLfloat)) -- Rotate the triangle on the Y axis
   rotate zr (Vector3 0 0 (1::GLfloat)) -- Rotate the triangle on the Y axis
   textureBinding Texture2D $= Just tex
-  renderPrimitive Quads $  -- start drawing a polygon (4 sided)
+  {-# SCC "renderPrimitive" #-}renderPrimitive Quads $  -- start drawing a polygon (4 sided)
     mapM_ ( \(x, y) -> do
        let x' = (x+offset) `mod` 45
        let fx = fromIntegral x/44 :: GLfloat
        let fy = fromIntegral y/44 :: GLfloat
        let fxb = fromIntegral (x+1)/44 :: GLfloat
        let fyb = fromIntegral (y+1)/44 :: GLfloat
-       texCoord (TexCoord2 fx fy)
-       vertex =<< liftM3 Vertex3 (readArray points (x,y,0))
+       {-# SCC "TexCoord2" #-}texCoord (TexCoord2 fx fy)
+       {-# SCC "vertex1" #-}vertex =<< liftM3 Vertex3 (readArray points (x,y,0))
                                  (readArray points (x,y,1))
                                  (readArray points (x',y,2))
        texCoord (TexCoord2 fx fyb)
-       vertex =<< liftM3 Vertex3 (readArray points (x,y+1,0))
+       {-# SCC "vertex2" #-}vertex =<< liftM3 Vertex3 (readArray points (x,y+1,0))
                                  (readArray points (x,y+1,1))
                                  (readArray points (x',y+1,2))
        texCoord (TexCoord2 fxb fyb)
-       vertex =<< liftM3 Vertex3 (readArray points (x+1,y+1,0))
+       {-# SCC "vertex3" #-}vertex =<< liftM3 Vertex3 (readArray points (x+1,y+1,0))
                                  (readArray points (x+1,y+1,1))
                                  (readArray points ((x'+1)`mod`45,y+1,2))
        texCoord (TexCoord2 fxb fy)
-       vertex =<< liftM3 Vertex3 (readArray points (x+1,y,0))
+       {-# SCC "vertex4" #-}vertex =<< liftM3 Vertex3 (readArray points (x+1,y,0))
                                  (readArray points (x+1,y,1))
                                  (readArray points ((x'+1)`mod`45,y,2)) )
     [(x,y) | x <- [0..43], y<-[0..43]]
@@ -98,7 +98,7 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
     offsetRef $= offset + 1
     wiggleRef $= 0 
 
-  modifyIORef wiggleRef (+ 1)
+  {-# SCC "modifyIORef" #-}modifyIORef wiggleRef (+ 1)
   -- since this is double buffered, swap the buffers to display what was just
   -- drawn
   flush
