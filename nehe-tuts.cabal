@@ -1,5 +1,5 @@
 Name:   nehe-tuts
-Version: 0.1
+Version: 0.1.1
 Synopsis:   Port of the NeHe OpenGL tutorials to Haskell.
 Description:    Port of the NeHe OpenGL tutorials to Haskell; so far only lessons 1-12 have been ported.
 Author: Jason Dagit
@@ -9,6 +9,7 @@ License-file: LICENSE
 Category: Graphics
 Cabal-Version:  >= 1.2
 Build-type: Simple
+Extra-Source-Files: README, Makefile, Data/*.bmp, Data/world.txt
 Executable lesson01
     Main-is: lesson01.hs
     Other-Modules: Util
