@@ -70,7 +70,7 @@ reverseBytes _ _ = undefined
                             
 readBytes :: Storable a => Handle -> Int -> IO (Ptr a)
 readBytes h n = do p <- mallocBytes n
-                   hGetBuf h p n
+                   _ <- hGetBuf h p n
                    return p
 
 readShort :: Handle -> IO Word16

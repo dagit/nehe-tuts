@@ -74,21 +74,21 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
        let fxb = fromIntegral (x+1)/44 :: GLfloat
        let fyb = fromIntegral (y+1)/44 :: GLfloat
        {-# SCC "TexCoord2" #-}texCoord (TexCoord2 fx fy)
-       {-# SCC "vertex1" #-}vertex =<< liftM3 Vertex3 (readArray points (x,y,0))
-                                 (readArray points (x,y,1))
-                                 (readArray points (x',y,2))
+       {-# SCC "vertex1" #-}vertex =<< liftM3 Vertex3 (readArray' points (x,y,0))
+                                 (readArray' points (x,y,1))
+                                 (readArray' points (x',y,2))
        texCoord (TexCoord2 fx fyb)
-       {-# SCC "vertex2" #-}vertex =<< liftM3 Vertex3 (readArray points (x,y+1,0))
-                                 (readArray points (x,y+1,1))
-                                 (readArray points (x',y+1,2))
+       {-# SCC "vertex2" #-}vertex =<< liftM3 Vertex3 (readArray' points (x,y+1,0))
+                                 (readArray' points (x,y+1,1))
+                                 (readArray' points (x',y+1,2))
        texCoord (TexCoord2 fxb fyb)
-       {-# SCC "vertex3" #-}vertex =<< liftM3 Vertex3 (readArray points (x+1,y+1,0))
-                                 (readArray points (x+1,y+1,1))
-                                 (readArray points ((x'+1)`mod`45,y+1,2))
+       {-# SCC "vertex3" #-}vertex =<< liftM3 Vertex3 (readArray' points (x+1,y+1,0))
+                                 (readArray' points (x+1,y+1,1))
+                                 (readArray' points ((x'+1)`mod`45,y+1,2))
        texCoord (TexCoord2 fxb fy)
-       {-# SCC "vertex4" #-}vertex =<< liftM3 Vertex3 (readArray points (x+1,y,0))
-                                 (readArray points (x+1,y,1))
-                                 (readArray points ((x'+1)`mod`45,y,2)) )
+       {-# SCC "vertex4" #-}vertex =<< liftM3 Vertex3 (readArray' points (x+1,y,0))
+                                 (readArray' points (x+1,y,1))
+                                 (readArray' points ((x'+1)`mod`45,y,2)) )
     [(x,y) | x <- [0..43], y<-[0..43]]
   xrot $= xr + 0.3
   yrot $= yr + 0.2
@@ -104,6 +104,11 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
   flush
   swapBuffers
 
+readArray' :: IOUArray (Int, Int, Int) Float -> (Int, Int, Int) -> IO GLfloat
+readArray' a (x,y,z) = do
+  r <- readArray a (x,y,z)
+  return $! realToFrac r
+
 keyPressed :: KeyboardMouseCallback
 -- 27 is ESCAPE
 keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
@@ -114,7 +119,7 @@ main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
      -- http://reality.sgi.com/mjk/spec3/spec3.html
-     getArgsAndInitialize 
+     _ <- getArgsAndInitialize
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
@@ -127,7 +132,7 @@ main = do
      -- window starts at upper left corner of the screen
      initialWindowPosition $= Position 0 0
      -- open a window
-     createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     _ <- createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
      -- register the function to do all our OpenGL drawing
      xrot <- newIORef 0
      yrot <- newIORef 0

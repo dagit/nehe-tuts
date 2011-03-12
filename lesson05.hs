@@ -138,7 +138,7 @@ main = do
      -- Initialize GLUT state - glut will take any command line arguments
      -- that pertain to it or X windows -- look at its documentation at
      -- http://reality.sgi.com/mjk/spec3/spec3.html
-     getArgsAndInitialize 
+     _ <- getArgsAndInitialize
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
@@ -151,7 +151,7 @@ main = do
      -- window starts at upper left corner of the screen
      initialWindowPosition $= Position 0 0
      -- open a window
-     createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     _ <- createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
      -- register the function to do all our OpenGL drawing
      rt <- newIORef 0
      rq <- newIORef 0

@@ -3,7 +3,7 @@ Version: 0.1.1
 Synopsis:   Port of the NeHe OpenGL tutorials to Haskell.
 Description:    Port of the NeHe OpenGL tutorials to Haskell; so far only lessons 1-12 have been ported.
 Author: Jason Dagit
-Maintainer: dagitj@gmail.com 
+Maintainer: dagitj@gmail.com
 License: BSD3
 License-file: LICENSE
 Category: Graphics
@@ -13,60 +13,60 @@ Extra-Source-Files: README, Makefile, Data/Crate.bmp, Data/Star.bmp, Data/glass.
 Executable lesson01
     Main-is: lesson01.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson02
     Main-is: lesson02.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson03
     Main-is: lesson03.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson04
     Main-is: lesson04.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson05
     Main-is: lesson05.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson06
     Main-is: lesson06.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2, haskell98
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2, haskell98
     GHC-Options: -Wall
 Executable lesson07
     Main-is: lesson07.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson08
     Main-is: lesson08.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2, array >= 0.2.0.0
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2, array >= 0.2.0.0
     GHC-Options: -Wall
 Executable lesson11
     Main-is: lesson11.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
 Executable lesson12
     Main-is: lesson12.hs
     Other-Modules: Util
-    Build-Depends: base, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, GLUT >= 2.1.1.2
     GHC-Options: -Wall
