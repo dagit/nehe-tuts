@@ -13,7 +13,8 @@ Extra-Source-Files: README, Makefile, Data/Crate.bmp, Data/Star.bmp, Data/glass.
 Executable lesson01
     Main-is: lesson01.hs
     Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*, GLUT >= 2.1.1.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
+                   GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson02
     Main-is: lesson02.hs

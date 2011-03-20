@@ -4,77 +4,91 @@
 
 module Main where
 
-import Graphics.UI.GLUT
+-- import Graphics.UI.GLUT
+import qualified Graphics.UI.GLFW as GLFW
+import Graphics.Rendering.OpenGL.Raw ( glClearColor, glClearDepth
+                                     , glEnable, gl_DEPTH_TEST
+                                     , glDepthFunc, gl_LEQUAL
+                                     , glHint, gl_PERSPECTIVE_CORRECTION_HINT
+                                     , gl_NICEST, glViewport
+                                     , glMatrixMode, gl_PROJECTION
+                                     , glLoadIdentity, gl_MODELVIEW
+                                     , glClear, gl_COLOR_BUFFER_BIT
+                                     , gl_DEPTH_BUFFER_BIT, glShadeModel
+                                     , gl_SMOOTH, glFlush )
+import Graphics.Rendering.GLU.Raw ( gluPerspective )
+import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
-import Control.Concurrent ( threadDelay )
+import Control.Monad ( forever )
 
 initGL :: IO ()
 initGL = do
-  clearColor $= Color4 0 0 0 0 -- Clear the background color to black
-  clearDepth $= 1 -- enables clearing of the depth buffer
-  depthFunc $= Just Less -- type of depth test
-  shadeModel $= Smooth -- enables smooth color shading
-  matrixMode $= Projection
-  loadIdentity  -- reset projection matrix
-  Size width height <- get windowSize
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100 -- calculate the aspect ratio of the window
-  matrixMode $= Modelview 0
+  glShadeModel gl_SMOOTH -- enables smooth color shading
+  glClearColor 0 0 0 0 -- Clear the background color to black
+  glClearDepth 1 -- enables clearing of the depth buffer
+  glEnable gl_DEPTH_TEST
+  glDepthFunc gl_LEQUAL -- type of depth test
+  glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
 
-  flush -- finally, we tell opengl to do it.
-
-resizeScene :: Size -> IO ()
-resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
-resizeScene s@(Size width height) = do
-  viewport $= (Position 0 0, s)
-  matrixMode $= Projection
-  loadIdentity
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100
-  matrixMode $= Modelview 0
-  flush
+resizeScene :: GLFW.WindowSizeCallback
+resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
+resizeScene width height = do
+  glViewport 0 0 (fromIntegral width) (fromIntegral height)
+  glMatrixMode gl_PROJECTION
+  glLoadIdentity
+  gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100 
+  glMatrixMode gl_MODELVIEW
+  glLoadIdentity
+  glFlush
 
 drawScene :: IO ()
 drawScene = do
-  clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
-  loadIdentity  -- reset view
-  -- since this is double buffered, swap the buffers to display what was just
-  -- drawn
-  swapBuffers
-  flush
+  -- clear the screen and the depth buffer
+  glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
+                         .|. gl_DEPTH_BUFFER_BIT
+  glLoadIdentity  -- reset view
+  glFlush
 
-keyPressed :: KeyboardMouseCallback
--- 27 is ESCAPE
-keyPressed (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed _            _    _ _ = do threadDelay 100
-                                      return ()
+shutdown :: GLFW.WindowCloseCallback
+shutdown = do
+  GLFW.closeWindow
+  GLFW.terminate
+  _ <- exitWith ExitSuccess
+  return True
+
+keyPressed :: GLFW.KeyCallback 
+keyPressed GLFW.KeyEsc True = shutdown >> return ()
+keyPressed _           _    = return ()
 
 main :: IO ()
 main = do
-     -- Initialize GLUT state - glut will take any command line arguments
-     -- that pertain to it or X windows -- look at its documentation at
-     -- http://reality.sgi.com/mjk/spec3/spec3.html
-     _ <- getArgsAndInitialize
-     -- select type of display mode:
-     -- Double buffer
-     -- RGBA color
-     -- Alpha components supported
-     -- Depth buffer
-     initialDisplayMode $= [ DoubleBuffered, RGBAMode, WithDepthBuffer, 
-                             WithAlphaComponent ]
+     True <- GLFW.initialize 
      -- get a 640 x 480 window
-     initialWindowSize $= Size 640 480
-     -- window starts at upper left corner of the screen
-     initialWindowPosition $= Position 0 0
-     -- open a window
-     _ <- createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
-     -- register the function to do all our OpenGL drawing
-     displayCallback $= drawScene
-     -- go fullscreen. This is as soon as possible.
-     fullScreen
-     -- register the funciton called when our window is resized
-     reshapeCallback $= Just resizeScene
-     -- register the function called when the keyboard is pressed.
-     keyboardMouseCallback $= Just keyPressed
+     let dspOpts = GLFW.defaultDisplayOptions
+                     { GLFW.displayOptions_width  = 640
+                     , GLFW.displayOptions_height = 480
+                     -- Set depth buffering and RGBA colors
+                     , GLFW.displayOptions_numRedBits   = 8
+                     , GLFW.displayOptions_numGreenBits = 8
+                     , GLFW.displayOptions_numBlueBits  = 8
+                     , GLFW.displayOptions_numAlphaBits = 8
+                     , GLFW.displayOptions_numDepthBits = 1
+                     -- , GLFW.displayOptions_displayMode  = GLFW.Fullscreen
+                     } 
      -- initialize our window.
+     True <- GLFW.openWindow dspOpts
+     -- window starts at upper left corner of the screen
+     GLFW.setWindowPosition 0 0
+     -- open a window
+     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     -- register the function to do all our OpenGL drawing
+     GLFW.setWindowRefreshCallback drawScene
+     -- register the funciton called when our window is resized
+     GLFW.setWindowSizeCallback resizeScene
+     -- register the function called when the keyboard is pressed.
+     GLFW.setKeyCallback keyPressed
+     -- register window close handler
+     GLFW.setWindowCloseCallback shutdown
      initGL
      -- start event processing engine
-     mainLoop
+     forever $ GLFW.waitEvents >> GLFW.swapBuffers
