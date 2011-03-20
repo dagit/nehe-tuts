@@ -71,3 +71,4 @@ Executable lesson12
     Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*, GLUT >= 2.1.1.2
     GHC-Options: -Wall
+
