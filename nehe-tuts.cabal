@@ -10,40 +10,42 @@ Category: Graphics
 Cabal-Version:  >= 1.8
 Build-type: Simple
 Extra-Source-Files: README, Makefile, Data/Crate.bmp, Data/Star.bmp, Data/glass.bmp, Data/tim.bmp, Data/NeHe.bmp, Data/cube.bmp, Data/mud.bmp, Data/world.txt
+library
+    Build-Depends:   base >= 3 && < 5,
+                     bytestring == 0.9.*,
+                     cereal == 0.3.*
+    GHC-Options:     -Wall
+    Exposed-Modules: Util
 Executable lesson01
     Main-is: lesson01.hs
-    Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson02
     Main-is: lesson02.hs
-    Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson03
     Main-is: lesson03.hs
-    Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson04
     Main-is: lesson04.hs
-    Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson05
     Main-is: lesson05.hs
-    Other-Modules: Util
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*
     GHC-Options: -Wall
 Executable lesson06
     Main-is: lesson06.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGL >= 2.2.1.1, haskell98
+    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
+                   GLURaw == 1.1.*, GLFW-b == 0.0.*,
+                   bytestring == 0.9.*, cereal == 0.3.*
     GHC-Options: -Wall
 Executable lesson07
     Main-is: lesson07.hs
