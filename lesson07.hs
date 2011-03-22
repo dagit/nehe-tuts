@@ -5,28 +5,8 @@
 module Main where
 
 import qualified Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.Raw ( glClearColor, glClearDepth
-                                     , glEnable, gl_DEPTH_TEST
-                                     , glDepthFunc, gl_LEQUAL
-                                     , glHint, gl_PERSPECTIVE_CORRECTION_HINT
-                                     , gl_NICEST, glViewport, glFlush
-                                     , glClear, gl_COLOR_BUFFER_BIT
-                                     , gl_DEPTH_BUFFER_BIT, glLoadIdentity
-                                     , glTranslatef, glBegin
-                                     , glEnd, gl_QUADS, glVertex3f
-                                     , glShadeModel, gl_SMOOTH, gl_PROJECTION
-                                     , glMatrixMode, gl_MODELVIEW, GLfloat
-                                     , glRotatef, glTexCoord2f, GLenum
-                                     , glTexImage2D, gl_TEXTURE_2D, gl_RGB
-                                     , gl_UNSIGNED_BYTE, glTexParameteri
-                                     , gl_TEXTURE_MIN_FILTER, gl_LINEAR
-                                     , gl_TEXTURE_MAG_FILTER, GLuint
-                                     , glGenTextures, glBindTexture
-                                     , glNormal3f, glLightfv, gl_LIGHT1
-                                     , gl_AMBIENT, gl_LIGHT1, gl_DIFFUSE
-                                     , gl_POSITION, gl_NEAREST, gl_LIGHTING
-                                     , gl_LINEAR_MIPMAP_NEAREST, glDisable
-                                     )
+-- everything from here starts with gl or GL
+import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.GLU.Raw ( gluPerspective, gluBuild2DMipmaps )
 import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )

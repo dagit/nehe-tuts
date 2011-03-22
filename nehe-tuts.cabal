@@ -55,27 +55,25 @@ Executable lesson07
     GHC-Options: -Wall
 Executable lesson08
     Main-is: lesson08.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*
+    Build-Depends: base >= 3 && < 5, OpenGL,
+                   GLUT, bytestring, cereal == 0.3.*
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*
+    Build-Depends: base >= 3 && < 5, OpenGL,
+                   GLUT, bytestring
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*, array >= 0.2.0.0
+    Build-Depends: base >= 3 && < 5, OpenGL, array >= 0.2.0.0,
+                   GLUT, bytestring
     GHC-Options: -Wall
 Executable lesson11
     Main-is: lesson11.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*
+    Build-Depends: base >= 3 && < 5, OpenGL, GLUT
     GHC-Options: -Wall
 Executable lesson12
     Main-is: lesson12.hs
-    Other-Modules: Util
-    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*
+    Build-Depends: base >= 3 && < 5, OpenGL, GLUT
     GHC-Options: -Wall
 

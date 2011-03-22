@@ -5,32 +5,15 @@
 module Main where
 
 import qualified Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.Raw ( glClearColor, glClearDepth
-                                     , glEnable, gl_DEPTH_TEST
-                                     , glDepthFunc, gl_LEQUAL
-                                     , glHint, gl_PERSPECTIVE_CORRECTION_HINT
-                                     , gl_NICEST, glViewport, glFlush
-                                     , glClear, gl_COLOR_BUFFER_BIT
-                                     , gl_DEPTH_BUFFER_BIT, glLoadIdentity
-                                     , glTranslatef, glBegin
-                                     , glVertex3f, glEnd, gl_QUADS
-                                     , glShadeModel, gl_SMOOTH, gl_PROJECTION
-                                     , glMatrixMode, gl_MODELVIEW, GLfloat
-                                     , glRotatef, glTexCoord2f
-                                     , glTexImage2D, gl_TEXTURE_2D, gl_RGB
-                                     , gl_UNSIGNED_BYTE, glTexParameteri
-                                     , gl_TEXTURE_MIN_FILTER, gl_LINEAR
-                                     , gl_TEXTURE_MAG_FILTER, GLuint
-                                     , glGenTextures, glBindTexture
-                                     )
+-- everything from here starts with gl or GL
+import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.GLU.Raw ( gluPerspective )
 import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
 import Control.Monad ( forever )
 import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
-import Foreign ( withForeignPtr, plusPtr, mallocForeignPtr, peek )
+import Foreign ( withForeignPtr, plusPtr, peek, alloca )
 import qualified Data.ByteString.Internal as BSI
-import Control.Concurrent ( threadDelay )
 import Util ( Image(..), bitmapLoad )
 
 initGL :: IO GLuint
@@ -49,10 +32,9 @@ loadGLTextures = do
   Just (Image w h pd) <- bitmapLoad "Data/NeHe.bmp"
   putStrLn $ "Image width  = " ++ show w
   putStrLn $ "Image height = " ++ show h
-  tex <- mallocForeignPtr >>= \ptr ->
-           withForeignPtr ptr $ \p -> do
+  tex <- alloca $ \p -> do
     glGenTextures 1 p
-    peek p :: IO GLuint
+    peek p
   let (ptr, off, _) = BSI.toForeignPtr pd
   withForeignPtr ptr $ \p -> do
     let p' = p `plusPtr` off
@@ -209,6 +191,6 @@ main = do
      -- initialize our window.
      -- start event processing engine
      forever $ do
-       threadDelay 1
+       GLFW.pollEvents
        drawScene tex xrot yrot zrot
        GLFW.swapBuffers

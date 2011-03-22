@@ -6,16 +6,8 @@ module Main where
 
 -- import Graphics.UI.GLUT
 import qualified Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.Raw ( glClearColor, glClearDepth
-                                     , glEnable, gl_DEPTH_TEST
-                                     , glDepthFunc, gl_LEQUAL
-                                     , glHint, gl_PERSPECTIVE_CORRECTION_HINT
-                                     , gl_NICEST, glViewport
-                                     , glMatrixMode, gl_PROJECTION
-                                     , glLoadIdentity, gl_MODELVIEW
-                                     , glClear, gl_COLOR_BUFFER_BIT
-                                     , gl_DEPTH_BUFFER_BIT, glShadeModel
-                                     , gl_SMOOTH, glFlush )
+-- everything from here starts with gl or GL
+import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.GLU.Raw ( gluPerspective )
 import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
