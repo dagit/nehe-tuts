@@ -16,7 +16,7 @@ import Graphics.Rendering.OpenGL.Raw ( glClearColor, glClearDepth
                                      , glEnd, gl_QUADS, glVertex3f
                                      , glShadeModel, gl_SMOOTH, gl_PROJECTION
                                      , glMatrixMode, gl_MODELVIEW, GLfloat
-                                     , glRotatef, glTexCoord2f
+                                     , glRotatef, glTexCoord2f, GLenum
                                      , glTexImage2D, gl_TEXTURE_2D, gl_RGB
                                      , gl_UNSIGNED_BYTE, glTexParameteri
                                      , gl_TEXTURE_MIN_FILTER, gl_LINEAR
@@ -33,29 +33,18 @@ import System.Exit ( exitWith, ExitCode(..) )
 import Control.Monad ( forever )
 import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
 import Foreign ( withForeignPtr, plusPtr
-               , mallocForeignPtrArray, peekElemOff, pokeElemOff
-               , ForeignPtr )
+               , ForeignPtr, newForeignPtr_ )
 import Foreign.Storable ( Storable )
+import Foreign.Marshal.Array ( newArray, allocaArray, peekArray )
 import qualified Data.ByteString.Internal as BSI
-import Control.Concurrent ( threadDelay )
 import Util ( Image(..), bitmapLoad )
 
-lightAmbient :: (GLfloat, GLfloat, GLfloat, GLfloat)
-lightAmbient = (0.5, 0.5, 0.5, 1.0)
-lightDiffuse :: (GLfloat, GLfloat, GLfloat, GLfloat)
-lightDiffuse = (1.0, 1.0, 1.0, 1.0)
-lightPosition :: (GLfloat, GLfloat, GLfloat, GLfloat)
-lightPosition = (0.0, 0.0, 2.0, 1.0)
+newArray' :: Storable a => [a] -> IO (ForeignPtr a)
+newArray' xs = (newArray xs) >>= newForeignPtr_
 
-toArray :: Storable a => (a,a,a,a) -> IO (ForeignPtr a)
-toArray (a,b,c,d) = do
-  ptr <- mallocForeignPtrArray 4
-  withForeignPtr ptr $ \p -> do
-    pokeElemOff p 0 a
-    pokeElemOff p 1 b
-    pokeElemOff p 2 c
-    pokeElemOff p 3 d
-  return ptr
+glLightfv' :: GLenum -> GLenum -> ForeignPtr GLfloat -> IO ()
+glLightfv' l a fp =
+  withForeignPtr fp $ glLightfv l a
 
 initGL :: IO [GLuint]
 initGL = do
@@ -66,15 +55,12 @@ initGL = do
   glEnable gl_DEPTH_TEST
   glDepthFunc gl_LEQUAL
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
-  la <- toArray lightAmbient
-  ld <- toArray lightDiffuse
-  lp <- toArray lightPosition
-  withForeignPtr la $ \p ->
-    glLightfv gl_LIGHT1 gl_AMBIENT  p
-  withForeignPtr ld $ \p ->
-    glLightfv gl_LIGHT1 gl_DIFFUSE  p
-  withForeignPtr lp $ \p ->
-    glLightfv gl_LIGHT1 gl_POSITION p
+  lightAmbient  <- newArray' [0.5, 0.5, 0.5, 1.0] 
+  lightDiffuse  <- newArray' [1.0, 1.0, 1.0, 1.0]
+  lightPosition <- newArray' [0.0, 0.0, 2.0, 1.0]
+  glLightfv' gl_LIGHT1 gl_AMBIENT  lightAmbient
+  glLightfv' gl_LIGHT1 gl_DIFFUSE  lightDiffuse
+  glLightfv' gl_LIGHT1 gl_POSITION lightPosition
   glEnable gl_LIGHT1
   loadGLTextures
 
@@ -82,10 +68,9 @@ loadGLTextures :: IO [GLuint]
 loadGLTextures = do
   Just (Image w h pd) <- bitmapLoad "Data/Crate.bmp"
   let numTextures = 3
-  texs <- mallocForeignPtrArray numTextures >>= \ptr ->
-            withForeignPtr ptr $ \p -> do
-      glGenTextures (fromIntegral numTextures) p
-      mapM (peekElemOff p) [0 .. numTextures - 1]
+  texs <- allocaArray numTextures $ \p -> do
+            glGenTextures (fromIntegral numTextures) p
+            peekArray numTextures p
   let (ptr, off, _) = BSI.toForeignPtr pd
   _ <- withForeignPtr ptr $ \p -> do
     let p' = p `plusPtr` off
@@ -305,6 +290,6 @@ main = do
      GLFW.setKeyCallback (keyPressed lighting filt zdepth xspeed yspeed)
      GLFW.setWindowCloseCallback shutdown
      forever $ do
-       threadDelay 1
+       GLFW.pollEvents 
        drawScene texs xrot yrot xspeed yspeed zdepth filt
        GLFW.swapBuffers
