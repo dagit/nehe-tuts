@@ -4,185 +4,234 @@
 
 module Main where
 
-import Graphics.UI.GLUT 
+import qualified Graphics.UI.GLFW as GLFW
+-- everything from here starts with gl or GL
+import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.GLU.Raw ( gluPerspective )
+import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
-import Data.IORef ( IORef, newIORef, writeIORef )
+import Control.Monad ( forever, when, forM, forM_ )
+import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
+import Foreign ( withForeignPtr, plusPtr
+               , ForeignPtr, newForeignPtr_
+               , alloca, peek )
+import Foreign.Storable ( Storable )
+import Foreign.Marshal.Array ( newArray )
+import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
-import Monad ( when, liftM )
-import Random
+import System.Random ( getStdRandom, randomR )
 
-data Star = Star { starColor :: Color3 GLubyte, starDist, 
-                   starAngle :: GLfloat }
+data Star = Star { starColor :: !(GLubyte, GLubyte, GLubyte)
+                 , starDist  :: !GLfloat 
+                 , starAngle :: !GLfloat
+                 }
             deriving Show
 
 numStars :: Num a => a
 numStars = 50
 
-initGL :: IO TextureObject
-initGL = do
-  tex <- loadGLTextures
-  texture Texture2D $= Enabled
-  clearColor $= Color4 0 0 0 0.5 -- Clear the background color to black
-  clearDepth $= 1 -- enables clearing of the depth buffer
-  depthFunc  $= Nothing -- type of depth test
-  shadeModel $= Smooth -- enables smooth color shading
-  matrixMode $= Projection
-  hint PerspectiveCorrection $= Nicest
-  blendFunc $= (SrcAlpha, One)
-  blend $= Enabled
-  loadIdentity  -- reset projection matrix
-  Size width height <- get windowSize
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100 -- calculate the aspect ratio of the window
-  matrixMode $= Modelview 0
+newArray' :: Storable a => [a] -> IO (ForeignPtr a)
+newArray' xs = (newArray xs) >>= newForeignPtr_
 
-  flush -- finally, we tell opengl to do it.
-  return tex
+glLightfv' :: GLenum -> GLenum -> ForeignPtr GLfloat -> IO ()
+glLightfv' l a fp =
+  withForeignPtr fp $ glLightfv l a
+
+initGL :: IO GLuint
+initGL = do
+  glEnable gl_TEXTURE_2D
+  glShadeModel gl_SMOOTH
+  glClearColor 0 0 0 0.5
+  glClearDepth 1
+  glEnable gl_DEPTH_TEST
+  glDepthFunc gl_LEQUAL
+  glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
+  lightAmbient  <- newArray' [0.5, 0.5, 0.5, 1.0] 
+  lightDiffuse  <- newArray' [1.0, 1.0, 1.0, 1.0]
+  lightPosition <- newArray' [0.0, 0.0, 2.0, 1.0]
+  glLightfv' gl_LIGHT1 gl_AMBIENT  lightAmbient
+  glLightfv' gl_LIGHT1 gl_DIFFUSE  lightDiffuse
+  glLightfv' gl_LIGHT1 gl_POSITION lightPosition
+  glEnable gl_LIGHT1
+  glBlendFunc gl_SRC_ALPHA gl_ONE
+  glEnable gl_BLEND
+  loadGLTextures
 
 generateStars :: IO [IORef Star]
-generateStars = mapM (\i -> do r <- getStdRandom (randomR (0, 255)) :: IO Int
-                               g <- getStdRandom (randomR (0, 255)) :: IO Int
-                               b <- getStdRandom (randomR (0, 255)) :: IO Int
-                               newIORef (Star {starAngle = 0, 
-                                               starColor = Color3 (fromIntegral r) (fromIntegral g) (fromIntegral b), 
-                                               starDist  = (i/numStars)*5}))
-                [0..numStars-1]
+generateStars = forM [0 .. numStars -1] $ \i -> do
+  r <- getStdRandom (randomR (0, 255)) :: IO Int
+  g <- getStdRandom (randomR (0, 255)) :: IO Int
+  b <- getStdRandom (randomR (0, 255)) :: IO Int
+  newIORef (Star { starAngle = 0
+                 , starColor = (fromIntegral r,fromIntegral g,fromIntegral b)
+                 , starDist  = (i/numStars)*5})
 
-loadGLTextures :: IO TextureObject
+loadGLTextures :: IO GLuint
 loadGLTextures = do
-  (Image (Size w h) pd) <- bitmapLoad "Data/Star.bmp"
-  texName <- liftM head (genObjectNames 1)
-  textureBinding Texture2D $= Just texName
-  textureFilter  Texture2D $= ((Linear', Nothing), Linear')
-  texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
-  return texName
+  Just (Image w h pd) <- bitmapLoad "Data/Star.bmp"
+  tex <- alloca $ \p -> do
+            glGenTextures 1 p
+            peek p
+  let (ptr, off, _) = BSI.toForeignPtr pd
+  _ <- withForeignPtr ptr $ \p -> do
+    let p' = p `plusPtr` off
+        glLinear  = fromIntegral gl_LINEAR
+    -- create linear filtered texture
+    glBindTexture gl_TEXTURE_2D tex
+    glTexImage2D gl_TEXTURE_2D 0 3
+      (fromIntegral w) (fromIntegral h)
+      0 gl_RGB gl_UNSIGNED_BYTE p'
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER glLinear
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER glLinear
+  return tex
 
-resizeScene :: Size -> IO ()
-resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
-resizeScene s@(Size width height) = do
-  viewport   $= (Position 0 0, s)
-  matrixMode $= Projection
-  loadIdentity
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100
-  matrixMode $= Modelview 0
-  flush
+resizeScene :: GLFW.WindowSizeCallback
+resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
+resizeScene width height = do
+  glViewport 0 0 (fromIntegral width) (fromIntegral height)
+  glMatrixMode gl_PROJECTION
+  glLoadIdentity
+  gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100
+  glMatrixMode gl_MODELVIEW
+  glLoadIdentity
+  glFlush
 
-colorUpgrade :: Color3 a -> a -> Color4 a
-colorUpgrade (Color3 r g b) a = Color4 r g b a
+glColor4ub' :: (GLubyte, GLubyte, GLubyte) -> GLubyte -> IO ()
+glColor4ub' (r,g,b) a = glColor4ub r g b a
 
-drawScene :: TextureObject -> IORef GLfloat -> IORef GLfloat -> IORef Bool
-             -> IORef GLfloat -> [IORef Star] -> IO ()
+drawScene :: GLuint -> IORef GLfloat -> IORef GLfloat
+          -> IORef Bool -> IORef GLfloat -> [IORef Star]
+          -> IO ()
 drawScene tex zoom tilt twinkle spin stars = do
-  clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
-  textureBinding Texture2D $= Just tex
+  -- clear the screen and the depth buffer
+  glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
+                         .|. gl_DEPTH_BUFFER_BIT
+  glBindTexture gl_TEXTURE_2D tex
 
-  mapM_ ( \(st1, st2, i) -> 
-    do loadIdentity       
-       s1 <- get st1
-       s2 <- get st2
-       sp <- get spin
-       zo <- get zoom
-       ti <- get tilt
-       tw <- get twinkle
-       translate (Vector3 0 0 (zo::GLfloat))
-       rotate ti (Vector3 1 0 (0::GLfloat))
-       rotate (starAngle s1) (Vector3 0 1 (0::GLfloat))
-       translate (Vector3 (starDist s1) 0 (0::GLfloat))
-       rotate (-(starAngle s1)) (Vector3 0 1 (0::GLfloat))
-       rotate (-ti) (Vector3 1 0 (0::GLfloat))
-       when tw $ 
-         do color (colorUpgrade (starColor s2) 255)
-            renderPrimitive Quads $ 
-              do texCoord (TexCoord2 0 (0::GLfloat))
-                 vertex (Vertex3 (-1) (-1) (0::GLfloat))
-                 texCoord (TexCoord2 1 (0::GLfloat))
-                 vertex (Vertex3 1 (-1) (0::GLfloat))
-                 texCoord (TexCoord2 1 (1::GLfloat))
-                 vertex (Vertex3 1 1 (0::GLfloat))
-                 texCoord (TexCoord2 0 (1::GLfloat))
-                 vertex (Vertex3 (-1) 1 (0::GLfloat))
-       rotate sp (Vector3 0 0 (1::GLfloat))
-       color (colorUpgrade (starColor s1) 255)
-       renderPrimitive Quads $ 
-         do texCoord (TexCoord2 0 (0::GLfloat))
-            vertex (Vertex3 (-1) (-1) (0::GLfloat))
-            texCoord (TexCoord2 1 (0::GLfloat))
-            vertex (Vertex3 1 (-1) (0::GLfloat))
-            texCoord (TexCoord2 1 (1::GLfloat))
-            vertex (Vertex3 1 1 (0::GLfloat))
-            texCoord (TexCoord2 0 (1::GLfloat))
-            vertex (Vertex3 (-1) 1 (0::GLfloat))
-       spin $= sp + 0.01
-       if starDist s1 < 0 
-          then do d <- return ((starDist s1)+5)
-                  r <- getStdRandom (randomR (0, 255)) :: IO Int
-                  g <- getStdRandom (randomR (0, 255)) :: IO Int
-                  b <- getStdRandom (randomR (0, 255)) :: IO Int
-                  st1 $= Star { starAngle = (starAngle s1) + i/numStars,
-                                starColor = Color3 (fromIntegral r) (fromIntegral g) (fromIntegral b),
-                                starDist  = d }
-          else do st1 $= Star { starAngle = (starAngle s1) + i/numStars,
-                                starColor = (starColor s1),
-                                starDist  = (starDist s1)-0.01 }) (zip3 stars (reverse stars) [0..numStars-1]) -- finally the second parameter to mapM_
-  -- since this is double buffered, swap the buffers to display what was just
-  -- drawn
-  flush
-  swapBuffers
+  let starTuples = zip3 stars
+                        (reverse stars)
+                        [0 .. numStars -1]
+  forM_ starTuples $ \(st1, st2, i) -> do
+    glLoadIdentity
+    s1 <- readIORef st1
+    s2 <- readIORef st2
+    sp <- readIORef spin
+    zo <- readIORef zoom
+    ti <- readIORef tilt
+    tw <- readIORef twinkle
+    glTranslatef 0 0 zo
+    glRotatef ti 1 0 0
+    glRotatef (starAngle s1) 0 1 0
+    glTranslatef (starDist s1) 0 0
+    glRotatef (-(starAngle s1)) 0 1 0
+    glRotatef (-ti) 1 0 0
+    when tw $ do
+      glColor4ub' (starColor s2) 255
+      glBegin gl_QUADS
+      glTexCoord2f 0 0 >> glVertex3f (-1) (-1) 0
+      glTexCoord2f 1 0 >> glVertex3f 1 (-1) 0
+      glTexCoord2f 1 1 >> glVertex3f 1 1 0
+      glTexCoord2f 0 1 >> glVertex3f (-1) 1 0
+      glEnd
+    glRotatef sp 0 0 1
+    glColor4ub' (starColor s1) 255
+    glBegin gl_QUADS
+    glTexCoord2f 0 0 >> glVertex3f (-1) (-1) 0
+    glTexCoord2f 1 0 >> glVertex3f 1 (-1) 0
+    glTexCoord2f 1 1 >> glVertex3f 1 1 0
+    glTexCoord2f 0 1 >> glVertex3f (-1) 1 0
+    glEnd
 
-keyPressed :: IORef Bool -> IORef GLfloat -> IORef GLfloat 
-              -> KeyboardMouseCallback
--- 27 is ESCAPE
-keyPressed _ _ _ (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed t _ _ (Char 'T') Down _  _ = do
-  twinkle <- get t
-  if twinkle
-     then t $= False
-     else t $= True
-keyPressed tw zo ti (Char 't') Down x y = keyPressed tw zo ti (Char 'T') Down x y
-keyPressed _ zoom _ (SpecialKey KeyPageUp) Down _ _ = 
-  get zoom >>= writeIORef zoom . (subtract 0.2)
-keyPressed _ zoom _ (SpecialKey KeyPageDown) Down _ _ = 
-  get zoom >>= writeIORef zoom . (+0.2)
-keyPressed _ _ tilt (SpecialKey KeyUp) Down _ _ = 
-  get tilt >>= writeIORef tilt . (subtract 0.5)          
-keyPressed _ _ tilt (SpecialKey KeyDown) Down _ _ = 
-  get tilt >>= writeIORef tilt . (+ 0.5)
-keyPressed _ _ _ _    _ _ _ = do return ()
+    writeIORef spin $! sp + 0.01
+    if starDist s1 < 0
+      then do
+        let d = starDist s1 + 5
+        r <- getStdRandom (randomR (0, 255)) :: IO Int
+        g <- getStdRandom (randomR (0, 255)) :: IO Int
+        b <- getStdRandom (randomR (0, 255)) :: IO Int
+        writeIORef st1 $! Star
+          { starAngle = starAngle s1 + i/numStars
+          , starColor = (fromIntegral r,fromIntegral g, fromIntegral b)
+          , starDist  = d
+          }
+      else do
+        writeIORef st1 $! Star
+          { starAngle = starAngle s1 + i/numStars
+          , starColor = starColor s1
+          , starDist  = (starDist s1)-0.01 }
+
+  glFlush
+
+shutdown :: GLFW.WindowCloseCallback
+shutdown = do
+  GLFW.closeWindow
+  GLFW.terminate
+  _ <- exitWith ExitSuccess
+  return True
+
+keyPressed :: IORef Bool -> IORef GLfloat -> IORef GLfloat
+           -> GLFW.KeyCallback
+keyPressed _ _ _ GLFW.KeyEsc   True = shutdown >> return ()
+keyPressed t _ _ (GLFW.CharKey 'T') True = do
+  twinkle <- readIORef t
+  writeIORef t $! not twinkle
+keyPressed tw zo ti (GLFW.CharKey 't') d =
+  keyPressed tw zo ti (GLFW.CharKey 'T') d
+keyPressed _ zoom _ GLFW.KeyPageup True = do
+  zd <- readIORef zoom
+  writeIORef zoom $! zd - 0.2
+keyPressed _ zoom _ GLFW.KeyPagedown True = do
+  zd <- readIORef zoom
+  writeIORef zoom $! zd + 0.2
+keyPressed _ _ tilt GLFW.KeyUp True = do
+  xs <- readIORef tilt 
+  writeIORef tilt $! xs - 0.5
+keyPressed _ _ tilt GLFW.KeyDown True = do
+  xs <- readIORef tilt
+  writeIORef tilt $! xs + 0.5
+keyPressed _ _ _ _ _ = return ()
 
 main :: IO ()
 main = do
-     -- Initialize GLUT state - glut will take any command line arguments
-     -- that pertain to it or X windows -- look at its documentation at
-     -- http://reality.sgi.com/mjk/spec3/spec3.html
-     _ <- getArgsAndInitialize
+     True <- GLFW.initialize
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     initialDisplayMode $= [ DoubleBuffered, RGBAMode, WithDepthBuffer, 
-                             WithAlphaComponent ]
-     -- get an 800 x 600 window
-     initialWindowSize $= Size 800 600
-     -- window starts at upper left corner of the screen
-     initialWindowPosition $= Position 0 0
+     let dspOpts = GLFW.defaultDisplayOptions
+                     -- get a 800 x 600 window
+                     { GLFW.displayOptions_width  = 800
+                     , GLFW.displayOptions_height = 600
+                     -- Set depth buffering and RGBA colors
+                     , GLFW.displayOptions_numRedBits   = 8
+                     , GLFW.displayOptions_numGreenBits = 8
+                     , GLFW.displayOptions_numBlueBits  = 8
+                     , GLFW.displayOptions_numAlphaBits = 8
+                     , GLFW.displayOptions_numDepthBits = 1
+                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
+                     }
      -- open a window
-     _ <- createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
-     -- register the function to do all our OpenGL drawing
+     True <- GLFW.openWindow dspOpts
+     -- window starts at upper left corner of the screen
+     GLFW.setWindowPosition 0 0
+     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
      twinkle <- newIORef False
-     spin <- newIORef 0
-     stars <- generateStars
-     zoom <- newIORef (-15)
-     tilt <- newIORef 90
+     spin    <- newIORef 0
+     stars   <- generateStars
+     zoom    <- newIORef (-15)
+     tilt    <- newIORef 90
      -- initialize our window.
      tex <- initGL
-     displayCallback $= (drawScene tex zoom tilt twinkle spin stars)
-     -- go fullscreen. This is as soon as possible.
-     fullScreen
-     -- even if there are no events, redraw our gl scene
-     idleCallback $= Just (drawScene tex zoom tilt twinkle spin stars)
+     GLFW.setWindowRefreshCallback
+       (drawScene tex zoom tilt twinkle spin stars)
      -- register the funciton called when our window is resized
-     reshapeCallback $= Just resizeScene
+     GLFW.setWindowSizeCallback resizeScene
      -- register the function called when the keyboard is pressed.
-     keyboardMouseCallback $= Just (keyPressed twinkle zoom tilt)
-     -- start event processing engine
-     mainLoop
+     GLFW.setKeyCallback $
+       keyPressed twinkle zoom tilt
+     GLFW.setWindowCloseCallback shutdown
+     forever $ do
+       GLFW.pollEvents 
+       drawScene tex zoom tilt twinkle spin stars
+       GLFW.swapBuffers

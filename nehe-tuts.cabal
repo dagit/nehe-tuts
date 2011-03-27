@@ -61,8 +61,10 @@ Executable lesson08
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
-    Build-Depends: base >= 3 && < 5, OpenGL,
-                   GLUT, bytestring
+    Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
+                   GLURaw == 1.1.*, GLFW-b == 0.0.*,
+                   bytestring == 0.9.*, cereal == 0.3.*,
+                   random == 1.0.*
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
