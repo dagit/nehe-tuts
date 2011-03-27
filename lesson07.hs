@@ -273,6 +273,5 @@ main = do
      GLFW.setKeyCallback (keyPressed lighting filt zdepth xspeed yspeed)
      GLFW.setWindowCloseCallback shutdown
      forever $ do
-       GLFW.pollEvents 
        drawScene texs xrot yrot xspeed yspeed zdepth filt
        GLFW.swapBuffers

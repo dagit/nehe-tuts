@@ -313,6 +313,5 @@ main = do
        keyPressed globals
      GLFW.setWindowCloseCallback shutdown
      forever $ do
-       GLFW.pollEvents 
        drawScene tex sector globals
        GLFW.swapBuffers

@@ -12,7 +12,6 @@ import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
 import Control.Monad ( forever )
 import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
-import Control.Concurrent ( threadDelay )
 
 increment :: GLfloat
 increment = 1.5
@@ -127,6 +126,5 @@ main = do
      initGL
      -- start event processing engine
      forever $ do
-       threadDelay 1
        drawScene rt rq
        GLFW.swapBuffers

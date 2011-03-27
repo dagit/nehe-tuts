@@ -194,6 +194,5 @@ main = do
      -- initialize our window.
      -- start event processing engine
      forever $ do
-       GLFW.pollEvents
        drawScene tex xrot yrot zrot
        GLFW.swapBuffers

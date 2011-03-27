@@ -83,4 +83,5 @@ main = do
      GLFW.setWindowCloseCallback shutdown
      initGL
      -- start event processing engine
-     forever $ GLFW.waitEvents >> GLFW.swapBuffers
+     forever $ do
+       GLFW.swapBuffers

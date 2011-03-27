@@ -105,4 +105,6 @@ main = do
      -- initialize our window.
      initGL
      -- start event processing engine
-     forever $ GLFW.waitEvents >> drawScene >> GLFW.swapBuffers
+     forever $ do
+       drawScene
+       GLFW.swapBuffers
