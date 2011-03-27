@@ -43,16 +43,7 @@ initGL = do
   glShadeModel gl_SMOOTH
   glClearColor 0 0 0 0.5
   glClearDepth 1
-  glEnable gl_DEPTH_TEST
-  glDepthFunc gl_LEQUAL
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
-  lightAmbient  <- newArray' [0.5, 0.5, 0.5, 1.0] 
-  lightDiffuse  <- newArray' [1.0, 1.0, 1.0, 1.0]
-  lightPosition <- newArray' [0.0, 0.0, 2.0, 1.0]
-  glLightfv' gl_LIGHT1 gl_AMBIENT  lightAmbient
-  glLightfv' gl_LIGHT1 gl_DIFFUSE  lightDiffuse
-  glLightfv' gl_LIGHT1 gl_POSITION lightPosition
-  glEnable gl_LIGHT1
   glBlendFunc gl_SRC_ALPHA gl_ONE
   glEnable gl_BLEND
   loadGLTextures
@@ -208,7 +199,7 @@ main = do
                      , GLFW.displayOptions_numGreenBits = 8
                      , GLFW.displayOptions_numBlueBits  = 8
                      , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 1
+                     , GLFW.displayOptions_numDepthBits = 24
                      -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
                      }
      -- open a window
@@ -232,6 +223,5 @@ main = do
        keyPressed twinkle zoom tilt
      GLFW.setWindowCloseCallback shutdown
      forever $ do
-       GLFW.pollEvents 
        drawScene tex zoom tilt twinkle spin stars
        GLFW.swapBuffers
