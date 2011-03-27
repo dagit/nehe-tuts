@@ -16,6 +16,7 @@ import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
 import Data.Array.IO ( readArray, IOUArray, newListArray )
 import Control.Applicative ( (<$>), (<*>) )
+import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 
 type Points = IOUArray (Int, Int, Int) Float
 
@@ -143,7 +144,9 @@ keyPressed _           _    = return ()
 
 main :: IO ()
 main = do
+     cd <- getCurrentDirectory
      True <- GLFW.initialize
+     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

@@ -18,6 +18,7 @@ import Foreign ( withForeignPtr, plusPtr
 import Foreign.Storable ( Storable )
 import Foreign.Marshal.Array ( newArray )
 import qualified Data.ByteString.Internal as BSI
+import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
 import System.Random ( getStdRandom, randomR )
 
@@ -184,7 +185,9 @@ keyPressed _ _ _ _ _ = return ()
 
 main :: IO ()
 main = do
+     cd <- getCurrentDirectory
      True <- GLFW.initialize
+     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

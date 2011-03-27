@@ -15,6 +15,7 @@ import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import Foreign ( withForeignPtr, plusPtr, alloca, peek )
 import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
+import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 
 boxcol :: [(GLfloat, GLfloat, GLfloat)]
 boxcol = [(1, 0, 0), (1, 0.5, 0), (1, 1, 0), 
@@ -153,7 +154,9 @@ keyPressed _    _    _             _    = return ()
 
 main :: IO ()
 main = do
+     cd <- getCurrentDirectory
      True <- GLFW.initialize
+     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

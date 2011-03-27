@@ -16,6 +16,7 @@ import Foreign ( ForeignPtr, withForeignPtr, newForeignPtr_
 import Foreign.Storable ( Storable )
 import Foreign.Marshal.Array ( allocaArray, peekArray, newArray )
 import qualified Data.ByteString.Internal as BSI
+import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
 import Control.Monad ( when, forM_, forever )
 
@@ -274,7 +275,9 @@ fmod x m = (fromIntegral ((floor x :: Int) `mod` m)) +
 
 main :: IO ()
 main = do
+     cd <- getCurrentDirectory
      True <- GLFW.initialize
+     setCurrentDirectory cd
      sector <- setupWorld
      -- select type of display mode:
      -- Double buffer

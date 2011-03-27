@@ -14,6 +14,7 @@ import Control.Monad ( forever )
 import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
 import Foreign ( withForeignPtr, plusPtr, peek, alloca )
 import qualified Data.ByteString.Internal as BSI
+import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
 
 initGL :: IO GLuint
@@ -154,7 +155,9 @@ keyPressed _           _    = return ()
 
 main :: IO ()
 main = do
+     cd <- getCurrentDirectory
      True <- GLFW.initialize
+     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
