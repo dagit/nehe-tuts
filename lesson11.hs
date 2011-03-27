@@ -132,6 +132,9 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
 readArray' :: IOUArray (Int, Int, Int) Float -> (Int, Int, Int) -> IO GLfloat
 readArray' a (x,y,z) = do
   r <- readArray a (x,y,z)
+  -- This line is extremely slow, because a RULES is missing
+  -- in openglraw.  You can replace it with Unsafe.Coerce.unsafeCoerce
+  -- on most platforms to get a HUGE speed up.
   return $! realToFrac r
 
 keyPressed :: GLFW.KeyCallback
