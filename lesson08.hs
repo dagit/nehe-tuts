@@ -4,229 +4,283 @@
 
 module Main where
 
-import Graphics.UI.GLUT 
+import qualified Graphics.UI.GLFW as GLFW
+-- everything from here starts with gl or GL
+import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.GLU.Raw ( gluPerspective, gluBuild2DMipmaps )
+import Data.Bits ( (.|.) )
 import System.Exit ( exitWith, ExitCode(..) )
-import Data.IORef ( IORef, newIORef, writeIORef )
+import Control.Monad ( forever )
+import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
+import Foreign ( withForeignPtr, plusPtr
+               , ForeignPtr, newForeignPtr_ )
+import Foreign.Storable ( Storable )
+import Foreign.Marshal.Array ( newArray, allocaArray, peekArray )
+import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
 
-lightAmbient :: Color4 GLfloat
-lightAmbient = Color4 0.5 0.5 0.5 1.0
-lightDiffuse :: Color4 GLfloat
-lightDiffuse = Color4 1.0 1.0 1.0 1.0
-lightPosition :: Vertex4 GLfloat
-lightPosition = Vertex4 0.0 0.0 2.0 1.0
+newArray' :: Storable a => [a] -> IO (ForeignPtr a)
+newArray' xs = (newArray xs) >>= newForeignPtr_
 
-initGL :: IO [TextureObject]
+glLightfv' :: GLenum -> GLenum -> ForeignPtr GLfloat -> IO ()
+glLightfv' l a fp =
+  withForeignPtr fp $ glLightfv l a
+
+initGL :: IO [GLuint]
 initGL = do
-  texs <- loadGLTextures
-  texture Texture2D $= Enabled
-  clearColor $= Color4 0 0 0 0.5 -- Clear the background color to black
-  clearDepth $= 1 -- enables clearing of the depth buffer
-  depthFunc $= Nothing
-  blend $= Enabled
-  hint PerspectiveCorrection $= Nicest
-  ambient (Light 1) $= lightAmbient
-  diffuse (Light 1) $= lightDiffuse
-  position (Light 1) $= lightPosition
-  light (Light 1) $= Enabled
-  lighting $= Enabled
-  shadeModel $= Smooth -- enables smooth color shading
-  matrixMode $= Projection
-  loadIdentity  -- reset projection matrix
-  Size width height <- get windowSize
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100 -- calculate the aspect ratio of the window
-  matrixMode $= Modelview 0
+  glEnable gl_TEXTURE_2D
+  glShadeModel gl_SMOOTH
+  glClearColor 0 0 0 0.5
+  glClearDepth 1
+  glEnable gl_DEPTH_TEST
+  glDepthFunc gl_LEQUAL
+  glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
+  lightAmbient  <- newArray' [0.5, 0.5, 0.5, 1.0] 
+  lightDiffuse  <- newArray' [1.0, 1.0, 1.0, 1.0]
+  lightPosition <- newArray' [0.0, 0.0, 2.0, 1.0]
+  glLightfv' gl_LIGHT1 gl_AMBIENT  lightAmbient
+  glLightfv' gl_LIGHT1 gl_DIFFUSE  lightDiffuse
+  glLightfv' gl_LIGHT1 gl_POSITION lightPosition
+  glEnable gl_LIGHT1
+  glBlendFunc gl_SRC_ALPHA gl_ONE
+  loadGLTextures
 
-  color (Color4 1 1 1 (0.5::GLfloat))
-  blendFunc $= (SrcAlpha, One)
-  flush -- finally, we tell opengl to do it.
+loadGLTextures :: IO [GLuint]
+loadGLTextures = do
+  Just (Image w h pd) <- bitmapLoad "Data/glass.bmp"
+  let numTextures = 3
+  texs <- allocaArray numTextures $ \p -> do
+            glGenTextures (fromIntegral numTextures) p
+            peekArray numTextures p
+  let (ptr, off, _) = BSI.toForeignPtr pd
+  _ <- withForeignPtr ptr $ \p -> do
+    let p' = p `plusPtr` off
+        glNearest = fromIntegral gl_NEAREST
+        glLinear  = fromIntegral gl_LINEAR
+    -- create nearest filtered texture
+    glBindTexture gl_TEXTURE_2D (texs!!0)
+    glTexImage2D gl_TEXTURE_2D 0 3
+      (fromIntegral w) (fromIntegral h)
+      0 gl_RGB gl_UNSIGNED_BYTE p'
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER glNearest
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER glNearest
+    -- create linear filtered texture
+    glBindTexture gl_TEXTURE_2D (texs!!1)
+    glTexImage2D gl_TEXTURE_2D 0 3
+      (fromIntegral w) (fromIntegral h)
+      0 gl_RGB gl_UNSIGNED_BYTE p'
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER glLinear
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER glLinear
+    -- create mipmap filtered texture
+    glBindTexture gl_TEXTURE_2D (texs!!2)
+    glTexImage2D gl_TEXTURE_2D 0 3
+      (fromIntegral w) (fromIntegral h)
+      0 gl_RGB gl_UNSIGNED_BYTE p'
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER glLinear 
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER
+      (fromIntegral gl_LINEAR_MIPMAP_NEAREST)
+    gluBuild2DMipmaps gl_TEXTURE_2D 3 (fromIntegral w)
+      (fromIntegral h) gl_RGB gl_UNSIGNED_BYTE p'
   return texs
 
-loadGLTextures :: IO [TextureObject]
-loadGLTextures = do
-  (Image (Size w h) pd) <- bitmapLoad "Data/glass.bmp"
-  texNames <- genObjectNames 3
-  -- create nearest filtered texture
-  textureBinding Texture2D $= Just (texNames !! 0)
-  textureFilter  Texture2D $= ((Nearest, Nothing), Nearest)
-  texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
-  -- create linear filtered texture
-  textureBinding Texture2D $= Just (texNames !! 1)
-  textureFilter  Texture2D $= ((Linear', Nothing), Linear')
-  texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
-  -- create mipmap filtered texture
-  textureBinding Texture2D $= Just (texNames !! 2)
-  textureFilter  Texture2D $= ((Linear', Just Nearest), Linear')
-  texImage2D Nothing NoProxy 0 RGB' (TextureSize2D w h) 0 pd
-  build2DMipmaps Texture2D RGB' w h pd
-  return texNames
+resizeScene :: GLFW.WindowSizeCallback
+resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
+resizeScene width height = do
+  glViewport 0 0 (fromIntegral width) (fromIntegral height)
+  glMatrixMode gl_PROJECTION
+  glLoadIdentity
+  gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100
+  glMatrixMode gl_MODELVIEW
+  glLoadIdentity
+  glFlush
 
-resizeScene :: Size -> IO ()
-resizeScene (Size w 0) = resizeScene (Size w 1) -- prevent divide by zero
-resizeScene s@(Size width height) = do
-  viewport   $= (Position 0 0, s)
-  matrixMode $= Projection
-  loadIdentity
-  perspective 45 (fromIntegral width/fromIntegral height) 0.1 100
-  matrixMode $= Modelview 0
-  flush
-
-drawScene :: [TextureObject] -> IORef GLfloat -> IORef GLfloat
-             -> IORef GLfloat -> IORef GLfloat -> IORef GLfloat
-             -> IORef Int -> IO ()
+drawScene :: [GLuint] -> IORef GLfloat -> IORef GLfloat
+          -> IORef GLfloat -> IORef GLfloat -> IORef GLfloat 
+          -> IORef Int -> IO ()
 drawScene texs xrot yrot xspeed yspeed zdepth filt = do
-  clear [ColorBuffer, DepthBuffer] -- clear the screen and the depth bufer
-  loadIdentity  -- reset view
-  zd <- get zdepth
-  translate (Vector3 0 0 (zd::GLfloat)) --Move left 5 Units into the screen
+  -- clear the screen and the depth buffer
+  glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
+                         .|. gl_DEPTH_BUFFER_BIT
+  glLoadIdentity -- reset view
 
-  xr <- get xrot
-  yr <- get yrot
-  rotate xr (Vector3 1 0 (0::GLfloat)) -- Rotate the triangle on the Y axis
-  rotate yr (Vector3 0 1 (0::GLfloat)) -- Rotate the triangle on the Y axis
-  f <- get filt
-  textureBinding Texture2D $= Just (texs!!f)
-  renderPrimitive Quads $  -- start drawing a polygon (4 sided)
-    do 
-       -- first the front
-       normal (Normal3 0.0 0.0 (1.0::GLfloat))
-       texCoord (TexCoord2 0 (0::GLfloat)) 
-       vertex (Vertex3 (-1) (-1)   (1::GLfloat))  -- bottom left of quad (Front)
-       texCoord (TexCoord2 1 (0::GLfloat)) 
-       vertex (Vertex3  1   (-1)   (1::GLfloat))  -- bottom right of quad (Front)
-       texCoord (TexCoord2 1 (1::GLfloat)) 
-       vertex (Vertex3  1      1   (1::GLfloat))  -- top right of quad (Front)
-       texCoord (TexCoord2 0 (1::GLfloat)) 
-       vertex (Vertex3 (-1)    1   (1::GLfloat))  -- top left of quad (Front)
-       -- now the back
-       normal (Normal3 0.0 0.0 (-1.0::GLfloat))
-       texCoord (TexCoord2 1 (0::GLfloat)) 
-       vertex (Vertex3 (-1) (-1)  (-1::GLfloat))  -- bottom right of quad (Back)
-       texCoord (TexCoord2 1 (1::GLfloat)) 
-       vertex (Vertex3 (-1)    1  (-1::GLfloat))  -- top right of quad (Back)
-       texCoord (TexCoord2 0 (1::GLfloat)) 
-       vertex (Vertex3    1    1  (-1::GLfloat))  -- top left of quad (Back)
-       texCoord (TexCoord2 0 (0::GLfloat)) 
-       vertex (Vertex3    1 (-1)  (-1::GLfloat))  -- bottom left of quad (Back)
-       -- now the top
-       normal (Normal3 0.0 1.0 (0.0::GLfloat))
-       texCoord (TexCoord2 0 (1::GLfloat))
-       vertex (Vertex3 (-1)  1   (-1::GLfloat))  -- top left of quad (Top)
-       texCoord (TexCoord2 0 (0::GLfloat))  
-       vertex (Vertex3 (-1)  1    (1::GLfloat))  -- bottom left of quad (Top)
-       texCoord (TexCoord2 1 (0::GLfloat))  
-       vertex (Vertex3  1    1    (1::GLfloat))  -- bottom right of quad (Top)
-       texCoord (TexCoord2 1 (1::GLfloat))  
-       vertex (Vertex3  1    1   (-1::GLfloat))  -- top right of quad (Top)
-       -- now the bottom
-       normal (Normal3 0.0 (-1.0) (0.0::GLfloat))
-       texCoord (TexCoord2 1 (1::GLfloat))  
-       vertex (Vertex3  1   (-1)   (1::GLfloat))  -- top right of quad (Bottom)
-       texCoord (TexCoord2 0 (1::GLfloat))  
-       vertex (Vertex3 (-1) (-1)   (1::GLfloat))  -- top left of quad (Bottom)
-       texCoord (TexCoord2 0 (0::GLfloat))  
-       vertex (Vertex3 (-1) (-1)  (-1::GLfloat))  -- bottom left of quad (Bottom)
-       texCoord (TexCoord2 1 (0::GLfloat))  
-       vertex (Vertex3  1   (-1)  (-1::GLfloat))  -- bottom right of quad (Bottom)
-       -- now the right
-       normal (Normal3 1.0 0.0 (0.0::GLfloat))
-       texCoord (TexCoord2 1 (0::GLfloat))  
-       vertex (Vertex3 1 (-1)  (-1::GLfloat))  -- bottom right of quad (Right)
-       texCoord (TexCoord2 1 (1::GLfloat))  
-       vertex (Vertex3 1    1  (-1::GLfloat))  -- top right of quad (Right)
-       texCoord (TexCoord2 0 (1::GLfloat))  
-       vertex (Vertex3 1    1   (1::GLfloat))  -- top left of quad (Right)
-       texCoord (TexCoord2 0 (0::GLfloat))  
-       vertex (Vertex3 1 (-1)   (1::GLfloat))  -- bottom left of quad (Right)
-       -- now the left
-       normal (Normal3 (-1.0) 0.0 (1.0::GLfloat))
-       texCoord (TexCoord2 0 (0::GLfloat))  
-       vertex (Vertex3 (-1) (-1)  (-1::GLfloat))  -- bottom left of quad (Left)
-       texCoord (TexCoord2 1 (0::GLfloat))  
-       vertex (Vertex3 (-1)    1  (-1::GLfloat))  -- top left of quad (Left)
-       texCoord (TexCoord2 1 (1::GLfloat))  
-       vertex (Vertex3 (-1)    1   (1::GLfloat))  -- top right of quad (Left)
-       texCoord (TexCoord2 0 (1::GLfloat))  
-       vertex (Vertex3 (-1) (-1)   (1::GLfloat))  -- bottom right of quad (Left)
-  xsp <- get xspeed
-  ysp <- get yspeed  
-  xrot $= xr + xsp
-  yrot $= yr + ysp
-  -- since this is double buffered, swap the buffers to display what was just
-  -- drawn
-  flush
-  swapBuffers
+  glTranslatef 0 0 (-5.0) --Move left 5 Units into the screen
 
-keyPressed :: IORef Int -> IORef GLfloat -> IORef GLfloat ->
-              IORef GLfloat -> KeyboardMouseCallback
--- 27 is ESCAPE
-keyPressed _ _ _ _ (Char '\27') Down _ _ = exitWith ExitSuccess
-keyPressed _ _ _ _ (Char 'L') Down   _ _ = do l <- get lighting 
-                                              if l == Enabled 
-                                                 then lighting $= Disabled
-                                                 else lighting $= Enabled
-                                              return ()
-keyPressed filt _ _ _ (Char 'F') Down  _  _ = 
-  get filt >>= writeIORef filt . (flip mod 3) . (+1)
-keyPressed _ _ _ _ (Char 'B') Down _ _ = do
-  b <- get blend
-  if b == Enabled 
-     then blend $= Disabled >> depthFunc $= Just Less
-     else blend $= Enabled >> depthFunc $= Nothing
-  return ()
-keyPressed f zd xs ys (Char 'l') d x y = keyPressed f zd xs ys (Char 'L') d x y
-keyPressed f zd xs ys (Char 'f') d x y = keyPressed f zd xs ys (Char 'F') d x y
-keyPressed f zd xs ys (Char 'b') d x y = keyPressed f zd xs ys (Char 'B') d x y
-keyPressed _ zdepth _ _ (SpecialKey KeyPageUp) Down _ _ = 
-  get zdepth >>= writeIORef zdepth . (subtract 0.2)
-keyPressed _ zdepth _ _ (SpecialKey KeyPageDown) Down _ _ = 
-  get zdepth >>= writeIORef zdepth . (+0.2)
-keyPressed _ _ xspeed _ (SpecialKey KeyUp) Down _ _ = 
-  get xspeed >>= writeIORef xspeed . (subtract 0.1)          
-keyPressed _ _ xspeed _ (SpecialKey KeyDown) Down _ _ = 
-  get xspeed >>= writeIORef xspeed . (+ 0.1)
-keyPressed _ _ _ yspeed (SpecialKey KeyRight) Down _ _ = do 
-  get yspeed >>= writeIORef yspeed . (+ 0.1)
-keyPressed _ _ _ yspeed (SpecialKey KeyLeft) Down _ _ = do
-  get yspeed >>= writeIORef yspeed . (subtract 0.1)
-keyPressed _ _ _ _     _       _    _ _ = return ()
+  zd <- readIORef zdepth
+  glTranslatef 0 0 zd --Move left 5 Units into the screen
+
+  xr <- readIORef xrot
+  yr <- readIORef yrot
+  glRotatef xr 1 0 0 -- Rotate the triangle on the Y axis
+  glRotatef yr 0 1 0 -- Rotate the triangle on the Y axis
+  f <- readIORef filt
+  glBindTexture gl_TEXTURE_2D (texs!!f)
+  
+  glBegin gl_QUADS -- start drawing a polygon (4 sided)
+  -- first the front
+  glNormal3f     0    0    1
+  glTexCoord2f   0    0 
+  glVertex3f   (-1) (-1)   1  -- bottom left of quad (Front)
+  glTexCoord2f   1    0 
+  glVertex3f     1  (-1)   1  -- bottom right of quad (Front)
+  glTexCoord2f   1    1 
+  glVertex3f     1    1    1  -- top right of quad (Front)
+  glTexCoord2f   0    1 
+  glVertex3f   (-1)   1    1  -- top left of quad (Front)
+  -- now the back
+  glNormal3f     0    0  (-1)
+  glTexCoord2f   1    0 
+  glVertex3f   (-1) (-1) (-1) -- bottom right of quad (Back)
+  glTexCoord2f   1    1 
+  glVertex3f   (-1)   1  (-1) -- top right of quad (Back)
+  glTexCoord2f   0    1 
+  glVertex3f     1    1  (-1) -- top left of quad (Back)
+  glTexCoord2f   0    0 
+  glVertex3f     1  (-1) (-1) -- bottom left of quad (Back)
+  -- now the top
+  glNormal3f     0    1    0
+  glTexCoord2f   0    1
+  glVertex3f   (-1)   1  (-1) -- top left of quad (Top)
+  glTexCoord2f   0    0  
+  glVertex3f   (-1)   1    1  -- bottom left of quad (Top)
+  glTexCoord2f   1    0  
+  glVertex3f     1    1    1  -- bottom right of quad (Top)
+  glTexCoord2f   1    1  
+  glVertex3f     1    1  (-1) -- top right of quad (Top)
+  -- now the bottom
+  glNormal3f     0  (-1)   0
+  glTexCoord2f   1    1  
+  glVertex3f     1  (-1)   1  -- top right of quad (Bottom)
+  glTexCoord2f   0    1  
+  glVertex3f   (-1) (-1)   1  -- top left of quad (Bottom)
+  glTexCoord2f   0    0  
+  glVertex3f   (-1) (-1) (-1) -- bottom left of quad (Bottom)
+  glTexCoord2f   1    0  
+  glVertex3f     1  (-1) (-1) -- bottom right of quad (Bottom)
+  -- now the right
+  glNormal3f     1    0    0
+  glTexCoord2f   1    0  
+  glVertex3f     1  (-1) (-1) -- bottom right of quad (Right)
+  glTexCoord2f   1    1  
+  glVertex3f     1    1  (-1) -- top right of quad (Right)
+  glTexCoord2f   0    1  
+  glVertex3f     1    1    1  -- top left of quad (Right)
+  glTexCoord2f   0    0
+  glVertex3f     1  (-1)   1  -- bottom left of quad (Right)
+  -- now the left
+  glNormal3f   (-1)   0    1
+  glTexCoord2f   0    0  
+  glVertex3f   (-1) (-1) (-1) -- bottom left of quad (Left)
+  glTexCoord2f   1    0  
+  glVertex3f   (-1)   1  (-1) -- top left of quad (Left)
+  glTexCoord2f   1    1  
+  glVertex3f   (-1)   1    1  -- top right of quad (Left)
+  glTexCoord2f   0    1  
+  glVertex3f   (-1) (-1)   1  -- bottom right of quad (Left)
+
+  glEnd
+
+  xsp <- readIORef xspeed
+  ysp <- readIORef yspeed  
+  writeIORef xrot $! xr + xsp
+  writeIORef yrot $! yr + ysp
+  
+  glFlush
+
+shutdown :: GLFW.WindowCloseCallback
+shutdown = do
+  GLFW.closeWindow
+  GLFW.terminate
+  _ <- exitWith ExitSuccess
+  return True
+
+keyPressed :: IORef Bool -> IORef Bool -> IORef Int -> IORef GLfloat
+           -> IORef GLfloat -> IORef GLfloat -> GLFW.KeyCallback
+keyPressed _ _ _ _ _ _ GLFW.KeyEsc   True = shutdown >> return ()
+keyPressed l _ _ _ _ _ (GLFW.CharKey 'L') True = do
+  le <- readIORef l
+  if le == True
+    then glEnable  gl_LIGHTING
+    else glDisable gl_LIGHTING
+  writeIORef l $! not le
+keyPressed _ _ filt _ _ _ (GLFW.CharKey 'F') True = do
+  f <- readIORef filt
+  writeIORef filt $! (f + 1) `mod` 3
+keyPressed l b f zd xs ys (GLFW.CharKey 'l') d =
+  keyPressed l b f zd xs ys (GLFW.CharKey 'L') d
+keyPressed l b f zd xs ys (GLFW.CharKey 'f') d =
+  keyPressed l b f zd xs ys (GLFW.CharKey 'F') d
+keyPressed l b f zd xs ys (GLFW.CharKey 'b') d =
+  keyPressed l b f zd xs ys (GLFW.CharKey 'B') d
+keyPressed _ b _ _ _ _ (GLFW.CharKey 'B') True = do
+  bp <- readIORef b
+  if bp == True
+    then glEnable  gl_BLEND >> glDisable gl_DEPTH_TEST
+    else glDisable gl_BLEND >> glEnable  gl_DEPTH_TEST
+  writeIORef b $! not bp
+keyPressed _ _ _ zdepth _ _ GLFW.KeyPageup True = do
+  zd <- readIORef zdepth
+  writeIORef zdepth $! zd - 0.2
+keyPressed _ _ _ zdepth _ _ GLFW.KeyPagedown True = do
+  zd <- readIORef zdepth
+  writeIORef zdepth $! zd + 0.2
+keyPressed _ _ _ _ xspeed _ GLFW.KeyUp True = do
+  xs <- readIORef xspeed
+  writeIORef xspeed $! xs - 0.1
+keyPressed _ _ _ _ xspeed _ GLFW.KeyDown True = do
+  xs <- readIORef xspeed
+  writeIORef xspeed $! xs + 0.1
+keyPressed _ _ _ _ _ yspeed GLFW.KeyRight True = do
+  xs <- readIORef yspeed
+  writeIORef yspeed $! xs + 0.1
+keyPressed _ _ _ _ _ yspeed GLFW.KeyLeft True = do
+  ys <- readIORef yspeed
+  writeIORef yspeed $! ys - 0.1
+keyPressed _ _ _ _ _ _ _ _ = return ()
 
 main :: IO ()
 main = do
-     -- Initialize GLUT state - glut will take any command line arguments
-     -- that pertain to it or X windows -- look at its documentation at
-     -- http://reality.sgi.com/mjk/spec3/spec3.html
-     _ <- getArgsAndInitialize
+     True <- GLFW.initialize
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     initialDisplayMode $= [ DoubleBuffered, RGBAMode, WithDepthBuffer, 
-                             WithAlphaComponent ]
-     -- get an 800 x 600 window
-     initialWindowSize $= Size 800 600
-     -- window starts at upper left corner of the screen
-     initialWindowPosition $= Position 0 0
+     let dspOpts = GLFW.defaultDisplayOptions
+                     -- get a 800 x 600 window
+                     { GLFW.displayOptions_width  = 800
+                     , GLFW.displayOptions_height = 600
+                     -- Set depth buffering and RGBA colors
+                     , GLFW.displayOptions_numRedBits   = 8
+                     , GLFW.displayOptions_numGreenBits = 8
+                     , GLFW.displayOptions_numBlueBits  = 8
+                     , GLFW.displayOptions_numAlphaBits = 8
+                     , GLFW.displayOptions_numDepthBits = 1
+                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
+                     }
      -- open a window
-     _ <- createWindow "Jeff Molofee's GL Code Tutorial ... NeHe '99"
-     -- register the function to do all our OpenGL drawing
-     xrot <- newIORef (0::GLfloat)
-     yrot <- newIORef (0::GLfloat)
-     xspeed <- newIORef (0::GLfloat)
-     yspeed <- newIORef (0::GLfloat)
-     zdepth <- newIORef (-5.0 :: GLfloat)
-     filt <- newIORef 0
+     True <- GLFW.openWindow dspOpts
+     -- window starts at upper left corner of the screen
+     GLFW.setWindowPosition 0 0
+     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     lighting <- newIORef True
+     blending <- newIORef True
+     xrot     <- newIORef (0::GLfloat)
+     yrot     <- newIORef (0::GLfloat)
+     xspeed   <- newIORef (0::GLfloat)
+     yspeed   <- newIORef (0::GLfloat)
+     zdepth   <- newIORef (-5.0 :: GLfloat)
+     filt     <- newIORef (0::Int)
      -- initialize our window.
      texs <- initGL
-     displayCallback $= (drawScene texs xrot yrot xspeed yspeed zdepth filt)
-     -- go fullscreen. This is as soon as possible.
-     fullScreen
-     -- even if there are no events, redraw our gl scene
-     idleCallback $= Just (drawScene texs xrot yrot xspeed yspeed zdepth filt)
+     GLFW.setWindowRefreshCallback
+       (drawScene texs xrot yrot xspeed yspeed zdepth filt)
      -- register the funciton called when our window is resized
-     reshapeCallback $= Just resizeScene
+     GLFW.setWindowSizeCallback resizeScene
      -- register the function called when the keyboard is pressed.
-     keyboardMouseCallback $= Just (keyPressed filt zdepth xspeed yspeed)
-     -- start event processing engine
-     mainLoop
+     GLFW.setKeyCallback $
+       keyPressed lighting blending filt zdepth xspeed yspeed
+     GLFW.setWindowCloseCallback shutdown
+     forever $ do
+       GLFW.pollEvents 
+       drawScene texs xrot yrot xspeed yspeed zdepth filt
+       GLFW.swapBuffers
