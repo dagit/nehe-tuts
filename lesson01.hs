@@ -84,4 +84,5 @@ main = do
      initGL
      -- start event processing engine
      forever $ do
+       drawScene
        GLFW.swapBuffers
