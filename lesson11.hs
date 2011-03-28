@@ -14,12 +14,11 @@ import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
 import Foreign ( withForeignPtr, plusPtr, alloca, peek )
 import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
-import Data.Array.IO ( readArray, IOUArray, newListArray )
+import Data.Array.IO ( readArray, IOArray, newListArray )
 import Control.Applicative ( (<$>), (<*>) )
 import System.Directory ( getCurrentDirectory, setCurrentDirectory )
-import Unsafe.Coerce ( unsafeCoerce )
 
-type Points = IOUArray (Int, Int, Int) Float
+type Points = IOArray (Int, Int, Int) GLfloat
 
 initGL :: IO GLuint
 initGL = do
@@ -103,21 +102,21 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
         fxb = fromIntegral (x+1)/44 :: GLfloat
         fyb = fromIntegral (y+1)/44 :: GLfloat
     glTexCoord2f fx fy
-    join $ glVertex3f <$> (readArray' points (x,y,0))
-                      <*> (readArray' points (x,y,1))
-                      <*> (readArray' points (x',y,2))
+    join $ glVertex3f <$> (readArray points (x,y,0))
+                      <*> (readArray points (x,y,1))
+                      <*> (readArray points (x',y,2))
     glTexCoord2f fx fyb
-    join $ glVertex3f <$> (readArray' points (x,y+1,0))
-                      <*> (readArray' points (x,y+1,1))
-                      <*> (readArray' points (x',y+1,2))
+    join $ glVertex3f <$> (readArray points (x,y+1,0))
+                      <*> (readArray points (x,y+1,1))
+                      <*> (readArray points (x',y+1,2))
     glTexCoord2f fxb fyb
-    join $ glVertex3f <$> (readArray' points (x+1,y+1,0))
-                      <*> (readArray' points (x+1,y+1,1))
-                      <*> (readArray' points ((x'+1)`mod`45,y+1,2))
+    join $ glVertex3f <$> (readArray points (x+1,y+1,0))
+                      <*> (readArray points (x+1,y+1,1))
+                      <*> (readArray points ((x'+1)`mod`45,y+1,2))
     glTexCoord2f fxb fy
-    join $ glVertex3f <$> (readArray' points (x+1,y,0))
-                      <*> (readArray' points (x+1,y,1))
-                      <*> (readArray' points ((x'+1)`mod`45,y,2))
+    join $ glVertex3f <$> (readArray points (x+1,y,0))
+                      <*> (readArray points (x+1,y,1))
+                      <*> (readArray points ((x'+1)`mod`45,y,2))
   glEnd
 
   writeIORef xrot $! xr + 0.3
@@ -132,14 +131,6 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
   writeIORef wiggleRef $! w + 1
 
   glFlush
-
-readArray' :: IOUArray (Int, Int, Int) Float -> (Int, Int, Int) -> IO GLfloat
-readArray' a (x,y,z) = do
-  r <- readArray a (x,y,z)
-  -- This line is extremely slow, because a RULES is missing
-  -- in openglraw.  You can replace it with Unsafe.Coerce.unsafeCoerce
-  -- on most platforms to get a HUGE speed up.
-  return $! unsafeCoerce r
 
 keyPressed :: GLFW.KeyCallback
 keyPressed GLFW.KeyEsc True = shutdown >> return ()
@@ -180,7 +171,7 @@ main = do
      let elems = concat [[((x/5)-4.5),
                           ((y/5)-4.5),
                           sin (((x/5)*40/360)*pi*2)]
-                        | x <- [0..44]::[Float], y <- [0..44]::[Float] ]
+                        | x <- [0..44]::[GLfloat], y <- [0..44]::[GLfloat] ]
      points <- newListArray ((0,0,0), (44,44,2)) elems :: IO Points
      -- initialize our window.
      tex <- initGL
