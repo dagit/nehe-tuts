@@ -9,7 +9,7 @@ License-file: LICENSE
 Category: Graphics
 Cabal-Version:  >= 1.8
 Build-type: Simple
-Extra-Source-Files: README, Makefile, Data/Crate.bmp, Data/Star.bmp, Data/glass.bmp, Data/tim.bmp, Data/NeHe.bmp, Data/cube.bmp, Data/mud.bmp, Data/world.txt
+Extra-Source-Files: README, Data/Crate.bmp, Data/Star.bmp, Data/glass.bmp, Data/tim.bmp, Data/NeHe.bmp, Data/cube.bmp, Data/mud.bmp, Data/world.txt
 Executable lesson01
     Main-is: lesson01.hs
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
