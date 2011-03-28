@@ -14,8 +14,8 @@ import Control.Monad ( forever )
 import Data.IORef ( IORef, newIORef, readIORef, writeIORef )
 import Foreign ( withForeignPtr, plusPtr, peek, alloca )
 import qualified Data.ByteString.Internal as BSI
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
+import Paths_nehe_tuts
 
 initGL :: IO GLuint
 initGL = do
@@ -30,7 +30,9 @@ initGL = do
 
 loadGLTextures :: IO GLuint
 loadGLTextures = do
-  Just (Image w h pd) <- bitmapLoad "Data/NeHe.bmp"
+  fp <- getDataFileName "NeHe.bmp"
+  putStrLn $ "loading texture: " ++ fp
+  Just (Image w h pd) <- bitmapLoad fp
   putStrLn $ "Image width  = " ++ show w
   putStrLn $ "Image height = " ++ show h
   tex <- alloca $ \p -> do
@@ -155,9 +157,7 @@ keyPressed _           _    = return ()
 
 main :: IO ()
 main = do
-     cd <- getCurrentDirectory
      True <- GLFW.initialize
-     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

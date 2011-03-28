@@ -16,7 +16,7 @@ import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
 import Data.Array.IO ( readArray, IOArray, newListArray )
 import Control.Applicative ( (<$>), (<*>) )
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
+import Paths_nehe_tuts
 
 type Points = IOArray (Int, Int, Int) GLfloat
 
@@ -38,7 +38,8 @@ initGL = do
 
 loadGLTextures :: IO GLuint
 loadGLTextures = do
-  Just (Image w h pd) <- bitmapLoad "Data/tim.bmp"
+  fp <- getDataFileName "tim.bmp"
+  Just (Image w h pd) <- bitmapLoad fp
   putStrLn $ "Image w = " ++ show w
   putStrLn $ "Image h = " ++ show h
   tex <- alloca $ \p -> do
@@ -138,9 +139,7 @@ keyPressed _           _    = return ()
 
 main :: IO ()
 main = do
-     cd <- getCurrentDirectory
      True <- GLFW.initialize
-     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

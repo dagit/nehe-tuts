@@ -17,8 +17,8 @@ import Foreign ( withForeignPtr, plusPtr
 import Foreign.Storable ( Storable )
 import Foreign.Marshal.Array ( newArray, allocaArray, peekArray )
 import qualified Data.ByteString.Internal as BSI
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
+import Paths_nehe_tuts
 
 newArray' :: Storable a => [a] -> IO (ForeignPtr a)
 newArray' xs = (newArray xs) >>= newForeignPtr_
@@ -48,7 +48,8 @@ initGL = do
 
 loadGLTextures :: IO [GLuint]
 loadGLTextures = do
-  Just (Image w h pd) <- bitmapLoad "Data/glass.bmp"
+  fp <- getDataFileName "glass.bmp"
+  Just (Image w h pd) <- bitmapLoad fp
   let numTextures = 3
   texs <- allocaArray numTextures $ \p -> do
             glGenTextures (fromIntegral numTextures) p
@@ -240,9 +241,7 @@ keyPressed _ _ _ _ _ _ _ _ = return ()
 
 main :: IO ()
 main = do
-     cd <- getCurrentDirectory
      True <- GLFW.initialize
-     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

@@ -1,5 +1,5 @@
 Name:   nehe-tuts
-Version: 0.2.1
+Version: 0.2.2
 Synopsis:   Port of the NeHe OpenGL tutorials to Haskell.
 Description:    Port of the NeHe OpenGL tutorials to Haskell; so far only lessons 1-12 have been ported.
 Author: Jason Dagit
@@ -9,7 +9,9 @@ License-file: LICENSE
 Category: Graphics
 Cabal-Version:  >= 1.8
 Build-type: Simple
-Extra-Source-Files: README, Data/Crate.bmp, Data/Star.bmp, Data/glass.bmp, Data/tim.bmp, Data/NeHe.bmp, Data/cube.bmp, Data/mud.bmp, Data/world.txt
+Extra-Source-Files: README
+data-dir: Data
+data-files: *.bmp, *.txt
 source-repository head
   type: git
   location: https://github.com/dagit/nehe-tuts
@@ -46,7 +48,7 @@ Executable lesson05
     GHC-Options: -Wall
 Executable lesson06
     Main-is: lesson06.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -54,7 +56,7 @@ Executable lesson06
     GHC-Options: -Wall
 Executable lesson07
     Main-is: lesson07.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -62,7 +64,7 @@ Executable lesson07
     GHC-Options: -Wall
 Executable lesson08
     Main-is: lesson08.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -70,7 +72,7 @@ Executable lesson08
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -78,7 +80,7 @@ Executable lesson09
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -86,7 +88,7 @@ Executable lesson10
     GHC-Options: -Wall
 Executable lesson11
     Main-is: lesson11.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
@@ -94,7 +96,7 @@ Executable lesson11
     GHC-Options: -Wall
 Executable lesson12
     Main-is: lesson12.hs
-    Other-modules: Util
+    Other-modules: Util, Paths_nehe_tuts
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,

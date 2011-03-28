@@ -15,7 +15,7 @@ import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import Foreign ( withForeignPtr, plusPtr, alloca, peek )
 import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
+import Paths_nehe_tuts
 
 boxcol :: [(GLfloat, GLfloat, GLfloat)]
 boxcol = [(1, 0, 0), (1, 0.5, 0), (1, 1, 0), 
@@ -83,7 +83,8 @@ initGL = do
 
 loadTextures :: IO GLuint
 loadTextures = do
-  Just (Image w h pd) <- bitmapLoad "Data/cube.bmp"
+  fp <- getDataFileName "cube.bmp"
+  Just (Image w h pd) <- bitmapLoad fp
   putStrLn $ "Image w = " ++ show w
   putStrLn $ "Image h = " ++ show h
   tex <- alloca $ \p -> do
@@ -154,9 +155,7 @@ keyPressed _    _    _             _    = return ()
 
 main :: IO ()
 main = do
-     cd <- getCurrentDirectory
      True <- GLFW.initialize
-     setCurrentDirectory cd
      -- select type of display mode:
      -- Double buffer
      -- RGBA color

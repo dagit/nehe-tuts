@@ -16,9 +16,9 @@ import Foreign ( ForeignPtr, withForeignPtr, newForeignPtr_
 import Foreign.Storable ( Storable )
 import Foreign.Marshal.Array ( allocaArray, peekArray, newArray )
 import qualified Data.ByteString.Internal as BSI
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import Util ( Image(..), bitmapLoad )
 import Control.Monad ( when, forM_, forever )
+import Paths_nehe_tuts
 
 type Sector = [Tri]
 
@@ -78,14 +78,16 @@ readRef :: IO (IORef a) -> IO a
 readRef r = r >>= readIORef
 
 setupWorld :: IO Sector
-setupWorld = do h <- openFile "Data/world.txt" ReadMode
-                ls <- (fmap (filter ignorable) ((fmap lines . hGetContents) h))
-                let numtris = read ((head . tail . words . head) ls)
-                let tris = readTris (tail ls)
-                when (length tris /= numtris) $ do
-                  putStrLn "error reading world.txt"
-                  exitWith (ExitFailure 1)
-                return tris
+setupWorld = do
+  fp <- getDataFileName "world.txt"
+  h  <- openFile fp ReadMode
+  ls <- (fmap (filter ignorable) ((fmap lines . hGetContents) h))
+  let numtris = read ((head . tail . words . head) ls)
+      tris    = readTris (tail ls)
+  when (length tris /= numtris) $ do
+    putStrLn "error reading world.txt"
+    exitWith (ExitFailure 1)
+  return tris
   where
   readTris :: [String] -> [Tri]
   readTris (l1:l2:l3:ls) = (Tri (readVert (words l1))
@@ -104,7 +106,7 @@ setupWorld = do h <- openFile "Data/world.txt" ReadMode
   ignorable ('/':'/':_) = False
   ignorable []          = False
   ignorable _           = True
-                
+
 initGL :: IO [GLuint]
 initGL = do
   glEnable gl_TEXTURE_2D
@@ -128,7 +130,8 @@ initGL = do
 
 loadTextures :: IO [GLuint]
 loadTextures = do
-  Just (Image w h pd) <- bitmapLoad "Data/mud.bmp"
+  fp <- getDataFileName "mud.bmp"
+  Just (Image w h pd) <- bitmapLoad fp
   let numTexs = 3 :: Int
   texs <- allocaArray (fromIntegral numTexs) $ \p -> do
     glGenTextures (fromIntegral numTexs) p
@@ -275,9 +278,7 @@ fmod x m = (fromIntegral ((floor x :: Int) `mod` m)) +
 
 main :: IO ()
 main = do
-     cd <- getCurrentDirectory
      True <- GLFW.initialize
-     setCurrentDirectory cd
      sector <- setupWorld
      -- select type of display mode:
      -- Double buffer
