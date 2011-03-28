@@ -1,34 +1,14 @@
 These examples were created by Jeff Molofee '99 NeHe of http://nehe.gamedev.net
 
-Converted to Haskell by Jason Dagit, 2005.  As far as I know, all
-examples require GHC and the HOpenGL and GLUT libraries. I've tried 
-not to add anything else as a requirement (although look into the 
-nehe-tuts.cabal file to make sure).  
-This code is tested on OSX and MS Windows only.  If you try it on 
+Converted to Haskell by Jason Dagit, 2005 and 2011.
+
+This code is tested on OSX, linux, Windows.  If you try it on
 another platform and it works for you, then please let me know.
 
-Usage of Makefile:
-
-make lessonXY            # this will build just lessonXY
-make lessonXY.hs         # same as above rule, convienent for tab completion.
-make                     # build everything
-make clean               # gets rid of the .hs and .o files
-make distclean           # make clean and get rid of the binaries
-
-Usage of Cabal package:
-
-runhaskell Setup.hs configure
-runhaskell Setup.hs build
-# And here you are, all the executables ready to run.
-
-If you are having problems with installing OpenGL bindings, or some weird linker
-problems during compilation on MS Windows, please see this page:
-
-http://netsuperbrain.com/blog/posts/freeglut-windows-hopengl-hglut/
-
-Make sure to follow all the steps precisely; if something still fails, start from 
-scratch: you've forgotten a step.
-
+The current version uses GLFW via the GLFW-b bindings.  Instead of
+using the OpenGL bindings, I use OpenGLRaw and GLURaw.  These packages
+provide an API that is closer to the C API for OpenGL making it
+easier to follow 3rd party documenatation and port examples.
 
 Acknowldegements:
 I want to thank #haskell on irc.freenode.net for support and general
