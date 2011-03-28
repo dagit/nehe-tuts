@@ -17,6 +17,7 @@ import Util ( Image(..), bitmapLoad )
 import Data.Array.IO ( readArray, IOUArray, newListArray )
 import Control.Applicative ( (<$>), (<*>) )
 import System.Directory ( getCurrentDirectory, setCurrentDirectory )
+import Unsafe.Coerce ( unsafeCoerce )
 
 type Points = IOUArray (Int, Int, Int) Float
 
@@ -29,7 +30,10 @@ initGL = do
   glEnable gl_DEPTH_TEST
   glDepthFunc gl_LEQUAL
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
-  glPolygonMode gl_BACK gl_FILL
+  -- On some video cards/drivers this looks terrible
+  -- So if you get an ugly image, try commenting out
+  -- these two glPolygonMode lines
+  glPolygonMode gl_BACK  gl_FILL
   glPolygonMode gl_FRONT gl_LINE
   loadGLTextures
 
@@ -114,7 +118,6 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
     join $ glVertex3f <$> (readArray' points (x+1,y,0))
                       <*> (readArray' points (x+1,y,1))
                       <*> (readArray' points ((x'+1)`mod`45,y,2))
-    return ()
   glEnd
 
   writeIORef xrot $! xr + 0.3
@@ -123,11 +126,11 @@ drawScene tex xrot yrot zrot points wiggleRef offsetRef = do
 
   when (wiggle == 2) $ do
     writeIORef offsetRef $! offset + 1
-    writeIORef wiggleRef $! 0 
+    writeIORef wiggleRef $! 0
 
   w <- readIORef wiggleRef
   writeIORef wiggleRef $! w + 1
- 
+
   glFlush
 
 readArray' :: IOUArray (Int, Int, Int) Float -> (Int, Int, Int) -> IO GLfloat
@@ -136,7 +139,7 @@ readArray' a (x,y,z) = do
   -- This line is extremely slow, because a RULES is missing
   -- in openglraw.  You can replace it with Unsafe.Coerce.unsafeCoerce
   -- on most platforms to get a HUGE speed up.
-  return $! realToFrac r
+  return $! unsafeCoerce r
 
 keyPressed :: GLFW.KeyCallback
 keyPressed GLFW.KeyEsc True = shutdown >> return ()
@@ -174,10 +177,10 @@ main = do
      zrot <- newIORef 0
      wiggle <- newIORef 0
      offset <- newIORef 0
-     let elems = concat [[((fromIntegral x/5)-4.5), 
-                          ((fromIntegral y/5)-4.5),
-                          sin (((fromIntegral x/5)*40/360)*pi*2)] 
-                        | x <- [0..44]::[Int], y <- [0..44]::[Int] ]
+     let elems = concat [[((x/5)-4.5),
+                          ((y/5)-4.5),
+                          sin (((x/5)*40/360)*pi*2)]
+                        | x <- [0..44]::[Float], y <- [0..44]::[Float] ]
      points <- newListArray ((0,0,0), (44,44,2)) elems :: IO Points
      -- initialize our window.
      tex <- initGL
