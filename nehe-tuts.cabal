@@ -10,6 +10,15 @@ Category: Graphics
 Cabal-Version:  >= 1.8
 Build-type: Simple
 Extra-Source-Files: README, Data/Crate.bmp, Data/Star.bmp, Data/glass.bmp, Data/tim.bmp, Data/NeHe.bmp, Data/cube.bmp, Data/mud.bmp, Data/world.txt
+source-repository head
+  type: git
+  location: https://github.com/dagit/nehe-tuts
+
+source-repository this
+  type: git
+  location: https://github.com/dagit/nehe-tuts
+  tag: 0.2.0
+
 Executable lesson01
     Main-is: lesson01.hs
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
