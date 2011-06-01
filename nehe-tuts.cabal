@@ -1,5 +1,5 @@
 Name:   nehe-tuts
-Version: 0.2.2
+Version: 0.2.3
 Synopsis:   Port of the NeHe OpenGL tutorials to Haskell.
 Description:    Port of the NeHe OpenGL tutorials to Haskell; so far only lessons 1-12 have been ported.
 Author: Jason Dagit
@@ -19,7 +19,7 @@ source-repository head
 source-repository this
   type: git
   location: https://github.com/dagit/nehe-tuts
-  tag: 0.2.0
+  tag: 0.2.3
 
 Executable lesson01
     Main-is: lesson01.hs
@@ -52,7 +52,7 @@ Executable lesson06
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   directory == 1.1.*
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson07
     Main-is: lesson07.hs
@@ -60,7 +60,7 @@ Executable lesson07
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   directory == 1.1.*
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson08
     Main-is: lesson08.hs
@@ -68,7 +68,7 @@ Executable lesson08
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   directory == 1.1.*
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
@@ -76,7 +76,8 @@ Executable lesson09
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   random == 1.0.*, directory == 1.1.*
+                   random == 1.0.*,
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
@@ -84,7 +85,7 @@ Executable lesson10
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   directory == 1.1.*
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson11
     Main-is: lesson11.hs
@@ -92,7 +93,8 @@ Executable lesson11
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   array == 0.3.*, directory == 1.1.*
+                   array == 0.3.*,
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
 Executable lesson12
     Main-is: lesson12.hs
@@ -100,5 +102,5 @@ Executable lesson12
     Build-Depends: base >= 3 && < 5, OpenGLRaw == 1.1.*,
                    GLURaw == 1.1.*, GLFW-b == 0.0.*,
                    bytestring == 0.9.*, cereal == 0.3.*,
-                   directory == 1.1.*
+                   directory >= 1.0 && < 1.2
     GHC-Options: -Wall
