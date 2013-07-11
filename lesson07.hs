@@ -27,8 +27,8 @@ glLightfv' :: GLenum -> GLenum -> ForeignPtr GLfloat -> IO ()
 glLightfv' l a fp =
   withForeignPtr fp $ glLightfv l a
 
-initGL :: IO [GLuint]
-initGL = do
+initGL :: GLFW.Window -> IO [GLuint]
+initGL win = do
   glEnable gl_TEXTURE_2D
   glShadeModel gl_SMOOTH
   glClearColor 0 0 0 0
@@ -43,6 +43,8 @@ initGL = do
   glLightfv' gl_LIGHT1 gl_DIFFUSE  lightDiffuse
   glLightfv' gl_LIGHT1 gl_POSITION lightPosition
   glEnable gl_LIGHT1
+  (w,h) <- GLFW.getFramebufferSize win
+  resizeScene win w h
   loadGLTextures
 
 loadGLTextures :: IO [GLuint]
@@ -85,8 +87,8 @@ loadGLTextures = do
   return texs
 
 resizeScene :: GLFW.WindowSizeCallback
-resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
-resizeScene width height = do
+resizeScene win w     0      = resizeScene win w 1 -- prevent divide by zero
+resizeScene _   width height = do
   glViewport 0 0 (fromIntegral width) (fromIntegral height)
   glMatrixMode gl_PROJECTION
   glLoadIdentity
@@ -97,8 +99,8 @@ resizeScene width height = do
 
 drawScene :: [GLuint] -> IORef GLfloat -> IORef GLfloat
           -> IORef GLfloat -> IORef GLfloat -> IORef GLfloat 
-          -> IORef Int -> IO ()
-drawScene texs xrot yrot xspeed yspeed zdepth filt = do
+          -> IORef Int -> GLFW.Window -> IO ()
+drawScene texs xrot yrot xspeed yspeed zdepth filt _ = do
   -- clear the screen and the depth buffer
   glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
                          .|. gl_DEPTH_BUFFER_BIT
@@ -188,73 +190,56 @@ drawScene texs xrot yrot xspeed yspeed zdepth filt = do
   glFlush
 
 shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-  GLFW.closeWindow
+shutdown win = do
+  GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
-  return True
+  return ()
 
 keyPressed :: IORef Bool -> IORef Int -> IORef GLfloat
            -> IORef GLfloat -> IORef GLfloat -> GLFW.KeyCallback
-keyPressed _ _ _ _ _ GLFW.KeyEsc   True = shutdown >> return ()
-keyPressed l _ _ _ _ (GLFW.CharKey 'L') True = do
+keyPressed _ _ _ _ _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win
+keyPressed l _ _ _ _ _   GLFW.Key'L  _ GLFW.KeyState'Pressed _ = do
   le <- readIORef l
   if le == True
     then glEnable  gl_LIGHTING
     else glDisable gl_LIGHTING
   writeIORef l $! not le
-keyPressed _ filt _ _ _ (GLFW.CharKey 'F') True = do
+keyPressed _ filt _ _ _ _ GLFW.Key'F _ GLFW.KeyState'Pressed _ = do
   f <- readIORef filt
   writeIORef filt $! (f + 1) `mod` 3
-keyPressed l f zd xs ys (GLFW.CharKey 'l') d =
-  keyPressed l f zd xs ys (GLFW.CharKey 'L') d
-keyPressed l f zd xs ys (GLFW.CharKey 'f') d =
-  keyPressed l f zd xs ys (GLFW.CharKey 'F') d
-keyPressed _ _ zdepth _ _ GLFW.KeyPageup True = do
+keyPressed _ _ zdepth _ _ _ GLFW.Key'PageUp _ GLFW.KeyState'Pressed _ = do
   zd <- readIORef zdepth
   writeIORef zdepth $! zd - 0.2
-keyPressed _ _ zdepth _ _ GLFW.KeyPagedown True = do
+keyPressed _ _ zdepth _ _ _ GLFW.Key'PageDown _ GLFW.KeyState'Pressed _ = do
   zd <- readIORef zdepth
   writeIORef zdepth $! zd + 0.2
-keyPressed _ _ _ xspeed _ GLFW.KeyUp True = do
+keyPressed _ _ _ xspeed _ _ GLFW.Key'Up _ GLFW.KeyState'Pressed _ = do
   xs <- readIORef xspeed
   writeIORef xspeed $! xs - 0.1
-keyPressed _ _ _ xspeed _ GLFW.KeyDown True = do
+keyPressed _ _ _ xspeed _ _ GLFW.Key'Down _ GLFW.KeyState'Pressed _ = do
   xs <- readIORef xspeed
   writeIORef xspeed $! xs + 0.1
-keyPressed _ _ _ _ yspeed GLFW.KeyRight True = do
+keyPressed _ _ _ _ yspeed _ GLFW.Key'Right _ GLFW.KeyState'Pressed _ = do
   xs <- readIORef yspeed
   writeIORef yspeed $! xs + 0.1
-keyPressed _ _ _ _ yspeed GLFW.KeyLeft True = do
+keyPressed _ _ _ _ yspeed _ GLFW.Key'Left _ GLFW.KeyState'Pressed _ = do
   ys <- readIORef yspeed
   writeIORef yspeed $! ys - 0.1
-keyPressed _ _ _ _ _ _ _ = return ()
+keyPressed _ _ _ _ _ _ _ _ _ _ = return ()
 
 main :: IO ()
 main = do
-     True <- GLFW.initialize
+     True <- GLFW.init
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     let dspOpts = GLFW.defaultDisplayOptions
-                     -- get a 800 x 600 window
-                     { GLFW.displayOptions_width  = 800
-                     , GLFW.displayOptions_height = 600
-                     -- Set depth buffering and RGBA colors
-                     , GLFW.displayOptions_numRedBits   = 8
-                     , GLFW.displayOptions_numGreenBits = 8
-                     , GLFW.displayOptions_numBlueBits  = 8
-                     , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 1
-                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
-                     }
+     GLFW.defaultWindowHints
      -- open a window
-     True <- GLFW.openWindow dspOpts
-     -- window starts at upper left corner of the screen
-     GLFW.setWindowPosition 0 0
-     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     Just win <- GLFW.createWindow 800 600 "Lesson 7" Nothing Nothing
+     GLFW.makeContextCurrent (Just win)
      lighting <- newIORef True
      xrot     <- newIORef (0::GLfloat)
      yrot     <- newIORef (0::GLfloat)
@@ -263,14 +248,15 @@ main = do
      zdepth   <- newIORef (-5.0 :: GLfloat)
      filt     <- newIORef (0::Int)
      -- initialize our window.
-     texs <- initGL
-     GLFW.setWindowRefreshCallback
-       (drawScene texs xrot yrot xspeed yspeed zdepth filt)
+     texs <- initGL win
+     GLFW.setWindowRefreshCallback win $
+       Just (drawScene texs xrot yrot xspeed yspeed zdepth filt)
      -- register the funciton called when our window is resized
-     GLFW.setWindowSizeCallback resizeScene
+     GLFW.setFramebufferSizeCallback win (Just resizeScene)
      -- register the function called when the keyboard is pressed.
-     GLFW.setKeyCallback (keyPressed lighting filt zdepth xspeed yspeed)
-     GLFW.setWindowCloseCallback shutdown
+     GLFW.setKeyCallback win (Just (keyPressed lighting filt zdepth xspeed yspeed))
+     GLFW.setWindowCloseCallback win (Just shutdown)
      forever $ do
-       drawScene texs xrot yrot xspeed yspeed zdepth filt
-       GLFW.swapBuffers
+       GLFW.pollEvents
+       drawScene texs xrot yrot xspeed yspeed zdepth filt win
+       GLFW.swapBuffers win

@@ -38,8 +38,8 @@ glLightfv' :: GLenum -> GLenum -> ForeignPtr GLfloat -> IO ()
 glLightfv' l a fp =
   withForeignPtr fp $ glLightfv l a
 
-initGL :: IO GLuint
-initGL = do
+initGL :: GLFW.Window -> IO GLuint
+initGL win = do
   glEnable gl_TEXTURE_2D
   glShadeModel gl_SMOOTH
   glClearColor 0 0 0 0.5
@@ -47,6 +47,8 @@ initGL = do
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
   glBlendFunc gl_SRC_ALPHA gl_ONE
   glEnable gl_BLEND
+  (w,h) <- GLFW.getFramebufferSize win
+  resizeScene win w h
   loadGLTextures
 
 generateStars :: IO [IORef Star]
@@ -79,8 +81,8 @@ loadGLTextures = do
   return tex
 
 resizeScene :: GLFW.WindowSizeCallback
-resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
-resizeScene width height = do
+resizeScene win w     0      = resizeScene win w 1 -- prevent divide by zero
+resizeScene _   width height = do
   glViewport 0 0 (fromIntegral width) (fromIntegral height)
   glMatrixMode gl_PROJECTION
   glLoadIdentity
@@ -94,8 +96,8 @@ glColor4ub' (r,g,b) a = glColor4ub r g b a
 
 drawScene :: GLuint -> IORef GLfloat -> IORef GLfloat
           -> IORef Bool -> IORef GLfloat -> [IORef Star]
-          -> IO ()
-drawScene tex zoom tilt twinkle spin stars = do
+          -> GLFW.Window -> IO ()
+drawScene tex zoom tilt twinkle spin stars _ = do
   -- clear the screen and the depth buffer
   glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
                          .|. gl_DEPTH_BUFFER_BIT
@@ -156,74 +158,60 @@ drawScene tex zoom tilt twinkle spin stars = do
   glFlush
 
 shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-  GLFW.closeWindow
+shutdown win = do
+  GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
-  return True
+  return ()
 
 keyPressed :: IORef Bool -> IORef GLfloat -> IORef GLfloat
            -> GLFW.KeyCallback
-keyPressed _ _ _ GLFW.KeyEsc   True = shutdown >> return ()
-keyPressed t _ _ (GLFW.CharKey 'T') True = do
+keyPressed _ _    _    win GLFW.Key'Escape  _ GLFW.KeyState'Pressed  _ = shutdown win
+keyPressed t _    _    _   GLFW.Key'T       _ GLFW.KeyState'Pressed  _ = do
   twinkle <- readIORef t
   writeIORef t $! not twinkle
-keyPressed tw zo ti (GLFW.CharKey 't') d =
-  keyPressed tw zo ti (GLFW.CharKey 'T') d
-keyPressed _ zoom _ GLFW.KeyPageup True = do
+keyPressed _ zoom _    _   GLFW.Key'PageUp   _ GLFW.KeyState'Pressed _ = do
   zd <- readIORef zoom
   writeIORef zoom $! zd - 0.2
-keyPressed _ zoom _ GLFW.KeyPagedown True = do
+keyPressed _ zoom _    _   GLFW.Key'PageDown _ GLFW.KeyState'Pressed _ = do
   zd <- readIORef zoom
   writeIORef zoom $! zd + 0.2
-keyPressed _ _ tilt GLFW.KeyUp True = do
+keyPressed _ _    tilt _   GLFW.Key'Up       _ GLFW.KeyState'Pressed _ = do
   xs <- readIORef tilt 
   writeIORef tilt $! xs - 0.5
-keyPressed _ _ tilt GLFW.KeyDown True = do
+keyPressed _ _    tilt _   GLFW.Key'Down     _ GLFW.KeyState'Pressed _ = do
   xs <- readIORef tilt
   writeIORef tilt $! xs + 0.5
-keyPressed _ _ _ _ _ = return ()
+keyPressed _ _    _    _   _                 _ _                     _ = return ()
 
 main :: IO ()
 main = do
-     True <- GLFW.initialize
+     True <- GLFW.init
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     let dspOpts = GLFW.defaultDisplayOptions
-                     -- get a 800 x 600 window
-                     { GLFW.displayOptions_width  = 800
-                     , GLFW.displayOptions_height = 600
-                     -- Set depth buffering and RGBA colors
-                     , GLFW.displayOptions_numRedBits   = 8
-                     , GLFW.displayOptions_numGreenBits = 8
-                     , GLFW.displayOptions_numBlueBits  = 8
-                     , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 24
-                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
-                     }
      -- open a window
-     True <- GLFW.openWindow dspOpts
-     -- window starts at upper left corner of the screen
-     GLFW.setWindowPosition 0 0
-     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     GLFW.defaultWindowHints
+     Just win <- GLFW.createWindow 800 600 "Lesson 9" Nothing Nothing
+     GLFW.makeContextCurrent (Just win)
      twinkle <- newIORef False
      spin    <- newIORef 0
      stars   <- generateStars
      zoom    <- newIORef (-15)
      tilt    <- newIORef 90
      -- initialize our window.
-     tex <- initGL
-     GLFW.setWindowRefreshCallback
-       (drawScene tex zoom tilt twinkle spin stars)
+     tex <- initGL win
+     GLFW.setWindowRefreshCallback win $
+       Just (drawScene tex zoom tilt twinkle spin stars)
      -- register the funciton called when our window is resized
-     GLFW.setWindowSizeCallback resizeScene
+     GLFW.setFramebufferSizeCallback win (Just resizeScene)
      -- register the function called when the keyboard is pressed.
-     GLFW.setKeyCallback $
-       keyPressed twinkle zoom tilt
-     GLFW.setWindowCloseCallback shutdown
+     GLFW.setKeyCallback win $
+       Just (keyPressed twinkle zoom tilt)
+     GLFW.setWindowCloseCallback win (Just shutdown)
      forever $ do
-       drawScene tex zoom tilt twinkle spin stars
-       GLFW.swapBuffers
+       GLFW.pollEvents
+       drawScene tex zoom tilt twinkle spin stars win
+       GLFW.swapBuffers win

@@ -23,84 +23,84 @@ source-repository this
 
 Executable lesson01
     Main-is: lesson01.hs
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0
     GHC-Options: -Wall
 Executable lesson02
     Main-is: lesson02.hs
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0
     GHC-Options: -Wall
 Executable lesson03
     Main-is: lesson03.hs
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0
     GHC-Options: -Wall
 Executable lesson04
     Main-is: lesson04.hs
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0
     GHC-Options: -Wall
 Executable lesson05
     Main-is: lesson05.hs
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0
     GHC-Options: -Wall
 Executable lesson06
     Main-is: lesson06.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   directory
     GHC-Options: -Wall
 Executable lesson07
     Main-is: lesson07.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   directory
     GHC-Options: -Wall
 Executable lesson08
     Main-is: lesson08.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   directory
     GHC-Options: -Wall
 Executable lesson09
     Main-is: lesson09.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   random == 1.0.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   random,
+                   directory
     GHC-Options: -Wall
 Executable lesson10
     Main-is: lesson10.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   directory
     GHC-Options: -Wall
 Executable lesson11
     Main-is: lesson11.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   array < 0.5,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   array,
+                   directory
     GHC-Options: -Wall
 Executable lesson12
     Main-is: lesson12.hs
     Other-modules: Util, Paths_nehe_tuts
-    Build-Depends: base >= 3 && < 5, OpenGLRaw < 1.3,
-                   GLURaw < 1.3, GLFW-b < 0.2,
-                   bytestring < 0.11, cereal == 0.3.*,
-                   directory >= 1.0 && < 1.3
+    Build-Depends: base >= 3 && < 5, OpenGLRaw,
+                   GLURaw, GLFW-b >= 1.0.0,
+                   bytestring, cereal,
+                   directory
     GHC-Options: -Wall

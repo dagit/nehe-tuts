@@ -107,8 +107,8 @@ setupWorld = do
   ignorable []          = False
   ignorable _           = True
 
-initGL :: IO [GLuint]
-initGL = do
+initGL :: GLFW.Window -> IO [GLuint]
+initGL win = do
   glEnable gl_TEXTURE_2D
   glShadeModel gl_SMOOTH
   glClearColor 0 0 0 0.5
@@ -126,6 +126,8 @@ initGL = do
   glEnable gl_LIGHT1
   glBlendFunc gl_SRC_ALPHA gl_ONE
   glEnable gl_BLEND
+  (w,h) <- GLFW.getFramebufferSize win
+  resizeScene win w h
   loadTextures
 
 loadTextures :: IO [GLuint]
@@ -168,8 +170,8 @@ loadTextures = do
   return texs
 
 resizeScene :: GLFW.WindowSizeCallback
-resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
-resizeScene width height = do
+resizeScene win w     0      = resizeScene win w 1 -- prevent divide by zero
+resizeScene _   width height = do
   glViewport 0 0 (fromIntegral width) (fromIntegral height)
   glMatrixMode gl_PROJECTION
   glLoadIdentity
@@ -178,8 +180,8 @@ resizeScene width height = do
   glLoadIdentity
   glFlush
 
-drawScene :: [GLuint] -> Sector -> Global -> IO ()
-drawScene texs sector globals = do
+drawScene :: [GLuint] -> Sector -> Global -> GLFW.Window -> IO ()
+drawScene texs sector globals _ = do
   glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
                          .|. gl_DEPTH_BUFFER_BIT
   glLoadIdentity  -- reset view
@@ -207,11 +209,11 @@ drawScene texs sector globals = do
   glFlush
 
 shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-  GLFW.closeWindow
+shutdown win = do
+  GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
-  return True
+  return ()
 
 updateIORef :: Show a => IO (IORef a) -> (a -> a) -> IO ()
 updateIORef ioref f = do ref <- ioref
@@ -220,10 +222,8 @@ updateIORef ioref f = do ref <- ioref
                          writeIORef ref (f r)
 
 keyPressed :: Global -> GLFW.KeyCallback
-keyPressed _ GLFW.KeyEsc True = shutdown >> return ()
-keyPressed g (GLFW.CharKey 'B') d =
-  keyPressed g (GLFW.CharKey 'b') d
-keyPressed g (GLFW.CharKey 'b') True = do
+keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win
+keyPressed g _   GLFW.Key'B      _ GLFW.KeyState'Pressed _ = do
   r <- readIORef (blend g)
   if r
      then do
@@ -233,44 +233,39 @@ keyPressed g (GLFW.CharKey 'b') True = do
        glEnable gl_BLEND
        glDisable gl_DEPTH_TEST
   writeIORef (blend g) $! not r
-keyPressed g (GLFW.CharKey 'f') True =
+keyPressed g _ GLFW.Key'F _ GLFW.KeyState'Pressed _ =
   modifyIORef (filterSelector g) (\x -> (x+1) `mod` 3)
-keyPressed g (GLFW.CharKey 'F') True =
-  keyPressed g (GLFW.CharKey 'f') True
-keyPressed g (GLFW.CharKey 'L') True =
-  keyPressed g (GLFW.CharKey 'l') True
-keyPressed g (GLFW.CharKey 'l') True = do
+keyPressed g _ GLFW.Key'L _ GLFW.KeyState'Pressed _ = do
   l <- readIORef (lighting g)
   if l
      then glDisable gl_LIGHTING
      else glEnable  gl_LIGHTING  
   writeIORef (lighting g) $! not l
-keyPressed g GLFW.KeyRight True =
+keyPressed g _ GLFW.Key'Right _ GLFW.KeyState'Pressed _ =
   modifyIORef (yrot g) (subtract 1.5)
-keyPressed g GLFW.KeyLeft True =
+keyPressed g _ GLFW.Key'Left _ GLFW.KeyState'Pressed _ =
   modifyIORef (yrot g) (+ 1.5)
-keyPressed g GLFW.KeyUp True = do
+keyPressed g _ GLFW.Key'Up _ GLFW.KeyState'Pressed _ = do
   h <- readIORef (yrot g)
   modifyIORef (xpos g) (subtract ((sin (h * piover180))*0.05))
   modifyIORef (zpos g) (subtract ((cos (h * piover180))*0.05))
   modifyIORef (walkbiasangle g) (\w -> (w+10) `fmod` 360)
   wba <- readIORef (walkbiasangle g)
   modifyIORef (walkbias g) (\_ -> ((sin (wba * piover180))/20))
-keyPressed g GLFW.KeyDown True = do
+keyPressed g _ GLFW.Key'Down _ GLFW.KeyState'Pressed _ = do
   h <- readIORef (yrot g)
   modifyIORef (xpos g) (+ (sin (h * piover180))*0.05)
   modifyIORef (zpos g) (+ (cos (h * piover180))*0.05)
   modifyIORef (walkbiasangle g) (\w -> (w-10) `fmod` 360)
   wba <- readIORef (walkbiasangle g)
   modifyIORef (walkbias g) (\_ -> ((sin (wba * piover180))/20))
-keyPressed g GLFW.KeyPageup True = do
+keyPressed g _ GLFW.Key'PageUp _ GLFW.KeyState'Pressed _ = do
   modifyIORef (zdepth g) (subtract 0.2)
   modifyIORef (lookupdown g) (subtract 0.2)
-keyPressed g GLFW.KeyPagedown True = do
+keyPressed g _ GLFW.Key'PageDown _ GLFW.KeyState'Pressed _ = do
   modifyIORef (zdepth g) (+ 0.2)
   modifyIORef (lookupdown g) (+ 0.2)
-
-keyPressed _ _           _    = return ()
+keyPressed _ _ _ _ _ _  = return ()
 
 fmod :: RealFrac a => a -> Int -> a
 fmod x m = (fromIntegral ((floor x :: Int) `mod` m)) + 
@@ -278,41 +273,28 @@ fmod x m = (fromIntegral ((floor x :: Int) `mod` m)) +
 
 main :: IO ()
 main = do
-     True <- GLFW.initialize
+     True <- GLFW.init
      sector <- setupWorld
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     let dspOpts = GLFW.defaultDisplayOptions
-                     -- get a 800 x 600 window
-                     { GLFW.displayOptions_width  = 800
-                     , GLFW.displayOptions_height = 600
-                     -- Set depth buffering and RGBA colors
-                     , GLFW.displayOptions_numRedBits   = 8
-                     , GLFW.displayOptions_numGreenBits = 8
-                     , GLFW.displayOptions_numBlueBits  = 8
-                     , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 1
-                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
-                     }
      -- open a window
-     True <- GLFW.openWindow dspOpts
-     -- window starts at upper left corner of the screen
-     GLFW.setWindowPosition 0 0
-     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     Just win <- GLFW.createWindow 800 600 "Lesson 10" Nothing Nothing
+     GLFW.makeContextCurrent (Just win)
      -- initialize our window.
-     tex <- initGL
+     tex <- initGL win
      globals <- mkGlobal
-     GLFW.setWindowRefreshCallback
-       (drawScene tex sector globals)
+     GLFW.setWindowRefreshCallback win $
+       Just (drawScene tex sector globals)
      -- register the funciton called when our window is resized
-     GLFW.setWindowSizeCallback resizeScene
+     GLFW.setFramebufferSizeCallback win (Just resizeScene)
      -- register the function called when the keyboard is pressed.
-     GLFW.setKeyCallback $
-       keyPressed globals
-     GLFW.setWindowCloseCallback shutdown
+     GLFW.setKeyCallback win $
+       Just (keyPressed globals)
+     GLFW.setWindowCloseCallback win (Just shutdown)
      forever $ do
-       drawScene tex sector globals
-       GLFW.swapBuffers
+       GLFW.pollEvents
+       drawScene tex sector globals win
+       GLFW.swapBuffers win

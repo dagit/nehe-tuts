@@ -66,8 +66,8 @@ buildLists = do
   glEndList
   return (box, top)
 
-initGL :: IO GLuint
-initGL = do
+initGL :: GLFW.Window -> IO GLuint
+initGL win = do
   tex <- loadTextures
   glEnable gl_TEXTURE_2D
   glShadeModel gl_SMOOTH
@@ -79,6 +79,8 @@ initGL = do
   glEnable gl_LIGHTING
   glEnable gl_COLOR_MATERIAL
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
+  (w,h) <- GLFW.getFramebufferSize win
+  resizeScene win w h
   return tex
 
 loadTextures :: IO GLuint
@@ -104,15 +106,15 @@ loadTextures = do
   return tex
 
 shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-  GLFW.closeWindow
+shutdown win = do
+  GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
-  return True
+  return ()
 
 resizeScene :: GLFW.WindowSizeCallback
-resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
-resizeScene width height = do
+resizeScene win w     0      = resizeScene win w 1 -- prevent divide by zero
+resizeScene _   width height = do
   glViewport 0 0 (fromIntegral width) (fromIntegral height)
   glMatrixMode gl_PROJECTION
   glLoadIdentity
@@ -122,8 +124,8 @@ resizeScene width height = do
   glFlush
 
 drawScene :: GLuint -> IORef GLfloat -> IORef GLfloat
-          -> GLuint -> GLuint -> IO ()
-drawScene tex xrot yrot box top = do
+          -> GLuint -> GLuint -> GLFW.Window -> IO ()
+drawScene tex xrot yrot box top _ = do
   glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
                          .|. gl_DEPTH_BUFFER_BIT
   glBindTexture gl_TEXTURE_2D tex
@@ -146,49 +148,40 @@ drawScene tex xrot yrot box top = do
   glFlush
 
 keyPressed :: IORef GLfloat -> IORef GLfloat -> GLFW.KeyCallback
-keyPressed _    _    GLFW.KeyEsc   True = shutdown >> return ()
-keyPressed xrot _    GLFW.KeyUp    True = modifyIORef xrot (subtract 0.8)
-keyPressed xrot _    GLFW.KeyDown  True = modifyIORef xrot (+0.8)
-keyPressed _    yrot GLFW.KeyLeft  True = modifyIORef yrot (subtract 0.8)
-keyPressed _    yrot GLFW.KeyRight True = modifyIORef yrot (+0.8)
-keyPressed _    _    _             _    = return ()
+keyPressed _    _    win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win
+keyPressed xrot _    _   GLFW.Key'Up     _ GLFW.KeyState'Pressed _ = modifyIORef xrot (subtract 0.8)
+keyPressed xrot _    _   GLFW.Key'Down   _ GLFW.KeyState'Pressed _ = modifyIORef xrot (+0.8)
+keyPressed _    yrot _   GLFW.Key'Left   _ GLFW.KeyState'Pressed _ = modifyIORef yrot (subtract 0.8)
+keyPressed _    yrot _   GLFW.Key'Right  _ GLFW.KeyState'Pressed _ = modifyIORef yrot (+0.8)
+keyPressed _    _    _   _               _ _                     _ = return ()
 
 main :: IO ()
 main = do
-     True <- GLFW.initialize
+     True <- GLFW.init
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     let dspOpts = GLFW.defaultDisplayOptions
-                     -- get a 800 x 600 window
-                     { GLFW.displayOptions_width  = 800
-                     , GLFW.displayOptions_height = 600
-                     -- Set depth buffering and RGBA colors
-                     , GLFW.displayOptions_numRedBits   = 8
-                     , GLFW.displayOptions_numGreenBits = 8
-                     , GLFW.displayOptions_numBlueBits  = 8
-                     , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 24
-                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
-                     }
+     GLFW.defaultWindowHints
      -- open a window
-     True <- GLFW.openWindow dspOpts
+     Just win <- GLFW.createWindow 800 600 "Lesson 12" Nothing Nothing
+     GLFW.makeContextCurrent (Just win)
      xrot <- newIORef 0
      yrot <- newIORef 0
      
      -- initialize our window.
-     tex <- initGL
+     tex <- initGL win
      (box, top) <- buildLists
-     GLFW.setWindowRefreshCallback $
-       drawScene tex xrot yrot box top
-     GLFW.setWindowSizeCallback resizeScene
+     GLFW.setWindowRefreshCallback win $
+       Just (drawScene tex xrot yrot box top)
+     GLFW.setFramebufferSizeCallback win (Just resizeScene)
      -- register the function called when the keyboard is pressed.
-     GLFW.setKeyCallback $
-       keyPressed xrot yrot
-     GLFW.setWindowCloseCallback shutdown
-     GLFW.getWindowRefreshRate >>= print
+     GLFW.setKeyCallback win $
+       Just (keyPressed xrot yrot)
+     GLFW.setWindowCloseCallback win (Just shutdown)
+     -- GLFW.getWindowRefreshRate >>= print
      forever $ do
-       drawScene tex xrot yrot box top
-       GLFW.swapBuffers
+       GLFW.pollEvents
+       drawScene tex xrot yrot box top win
+       GLFW.swapBuffers win

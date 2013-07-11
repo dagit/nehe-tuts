@@ -17,8 +17,8 @@ import qualified Data.ByteString.Internal as BSI
 import Util ( Image(..), bitmapLoad )
 import Paths_nehe_tuts
 
-initGL :: IO GLuint
-initGL = do
+initGL :: GLFW.Window -> IO GLuint
+initGL win = do
   glEnable gl_TEXTURE_2D
   glShadeModel gl_SMOOTH
   glClearColor 0 0 0 0
@@ -26,6 +26,8 @@ initGL = do
   glEnable gl_DEPTH_TEST
   glDepthFunc gl_LEQUAL
   glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
+  (w,h) <- GLFW.getFramebufferSize win
+  resizeScene win w h
   loadGLTextures
 
 loadGLTextures :: IO GLuint
@@ -51,8 +53,8 @@ loadGLTextures = do
   return tex
 
 resizeScene :: GLFW.WindowSizeCallback
-resizeScene w     0      = resizeScene w 1 -- prevent divide by zero
-resizeScene width height = do
+resizeScene win w     0      = resizeScene win w 1 -- prevent divide by zero
+resizeScene _   width height = do
   glViewport 0 0 (fromIntegral width) (fromIntegral height)
   glMatrixMode gl_PROJECTION
   glLoadIdentity
@@ -62,8 +64,8 @@ resizeScene width height = do
   glFlush
 
 drawScene :: GLuint -> IORef GLfloat -> IORef GLfloat 
-          -> IORef GLfloat -> IO ()
-drawScene tex xrot yrot zrot = do
+          -> IORef GLfloat -> GLFW.Window -> IO ()
+drawScene tex xrot yrot zrot _ = do
   -- clear the screen and the depth buffer
   glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
                          .|. gl_DEPTH_BUFFER_BIT
@@ -145,54 +147,42 @@ drawScene tex xrot yrot zrot = do
   glFlush
 
 shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-  GLFW.closeWindow
+shutdown win = do
+  GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
-  return True
+  return ()
 
 keyPressed :: GLFW.KeyCallback
-keyPressed GLFW.KeyEsc True = shutdown >> return ()
-keyPressed _           _    = return ()
+keyPressed win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win
+keyPressed _   _               _ _                     _ = return ()
 
 main :: IO ()
 main = do
-     True <- GLFW.initialize
+     True <- GLFW.init
      -- select type of display mode:
      -- Double buffer
      -- RGBA color
      -- Alpha components supported
      -- Depth buffer
-     let dspOpts = GLFW.defaultDisplayOptions
-                     -- get a 800 x 600 window
-                     { GLFW.displayOptions_width  = 800
-                     , GLFW.displayOptions_height = 600
-                     -- Set depth buffering and RGBA colors
-                     , GLFW.displayOptions_numRedBits   = 8
-                     , GLFW.displayOptions_numGreenBits = 8
-                     , GLFW.displayOptions_numBlueBits  = 8
-                     , GLFW.displayOptions_numAlphaBits = 8
-                     , GLFW.displayOptions_numDepthBits = 1
-                     -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
-                     }
+     GLFW.defaultWindowHints
      -- open a window
-     True <- GLFW.openWindow dspOpts
-     -- window starts at upper left corner of the screen
-     GLFW.setWindowPosition 0 0
-     GLFW.setWindowTitle "Jeff Molofee's GL Code Tutorial ... NeHe '99"
+     Just win <- GLFW.createWindow 800 600 "Lesson 6" Nothing Nothing
+     GLFW.makeContextCurrent (Just win)
      -- register the function to do all our OpenGL drawing
      xrot <- newIORef 0
      yrot <- newIORef 0
      zrot <- newIORef 0
-     tex  <- initGL
-     GLFW.setWindowRefreshCallback (drawScene tex xrot yrot zrot)
+     tex  <- initGL win
+     GLFW.setWindowRefreshCallback win (Just (drawScene tex xrot yrot zrot))
      -- register the funciton called when our window is resized
-     GLFW.setWindowSizeCallback resizeScene
+     GLFW.setFramebufferSizeCallback win (Just resizeScene)
      -- register the function called when the keyboard is pressed.
-     GLFW.setKeyCallback keyPressed
-     GLFW.setWindowCloseCallback shutdown
+     GLFW.setKeyCallback win (Just keyPressed)
+     GLFW.setWindowCloseCallback win (Just shutdown)
      -- initialize our window.
      -- start event processing engine
      forever $ do
-       drawScene tex xrot yrot zrot
-       GLFW.swapBuffers
+       GLFW.pollEvents
+       drawScene tex xrot yrot zrot win
+       GLFW.swapBuffers win
